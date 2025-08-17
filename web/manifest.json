@@ -1,6 +1,6 @@
 {
-    "name": "firebase_demo",
-    "short_name": "firebase_demo",
+    "name": "fc_event",
+    "short_name": "fc_event",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

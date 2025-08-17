@@ -1,4 +1,4 @@
-# firebase_demo
+# fc_event
 
 A new Flutter project.
 

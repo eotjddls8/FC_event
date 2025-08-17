@@ -14,10 +14,10 @@ class RewardedAdService {
         onAdLoaded: (ad) {
           _rewardedAd = ad;
           _isRewardedAdReady = true;
-          print('🎥 보상형 광고 로드 완료!');
+          print('보상형 광고 로드 완료');
         },
         onAdFailedToLoad: (error) {
-          print('❌ 보상형 광고 로드 실패: $error');
+          print('보상형 광고 로드 실패: $error');
           _isRewardedAdReady = false;
         },
       ),
@@ -27,7 +27,7 @@ class RewardedAdService {
   // 보상형 광고 표시
   static Future<bool> showRewardedAd() async {
     if (!_isRewardedAdReady || _rewardedAd == null) {
-      print('⚠️ 보상형 광고가 준비되지 않음');
+      print('보상형 광고가 준비되지 않음');
       return false;
     }
 
@@ -35,10 +35,10 @@ class RewardedAdService {
 
     _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdShowedFullScreenContent: (ad) {
-        print('🎬 보상형 광고 표시됨');
+        print('보상형 광고 표시됨');
       },
       onAdDismissedFullScreenContent: (ad) {
-        print('🎬 보상형 광고 닫힘');
+        print('보상형 광고 닫힘');
         ad.dispose();
         _rewardedAd = null;
         _isRewardedAdReady = false;
@@ -46,7 +46,7 @@ class RewardedAdService {
         loadRewardedAd();
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
-        print('❌ 보상형 광고 표시 실패: $error');
+        print('보상형 광고 표시 실패: $error');
         ad.dispose();
         _rewardedAd = null;
         _isRewardedAdReady = false;
@@ -55,7 +55,7 @@ class RewardedAdService {
 
     await _rewardedAd!.show(
       onUserEarnedReward: (ad, reward) {
-        print('🎁 보상 획득: ${reward.amount} ${reward.type}');
+        print('보상 획득: ${reward.amount} ${reward.type}');
         rewardEarned = true;
       },
     );
@@ -69,12 +69,5 @@ class RewardedAdService {
   // 초기화
   static Future<void> initialize() async {
     await loadRewardedAd();
-  }
-
-  // 리소스 정리
-  static void dispose() {
-    _rewardedAd?.dispose();
-    _rewardedAd = null;
-    _isRewardedAdReady = false;
   }
 }

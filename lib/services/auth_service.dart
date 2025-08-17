@@ -12,6 +12,8 @@ class AuthService {
   // 로그인 상태 스트림
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+
+
   // 회원가입 (새로 추가)
   Future<UserModel?> signUp(String email, String password, String name) async {
     try {

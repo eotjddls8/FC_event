@@ -33,20 +33,16 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      UserModel? user = await _authService.signIn(
+      // 기존 signIn 메서드 사용 - 결과는 무시하고 AuthWrapper가 처리하도록 함
+      await _authService.signIn(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
 
-      if (user != null && mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EventListScreen(currentUser: user),
-          ),
-        );
-      }
+      // AuthWrapper가 자동으로 화면을 전환하므로 별도 처리 불필요
+
     } catch (e) {
+      print('로그인 에러: $e');
       if (mounted) {
         String errorMessage = '로그인 실패';
         if (e.toString().contains('user-not-found')) {

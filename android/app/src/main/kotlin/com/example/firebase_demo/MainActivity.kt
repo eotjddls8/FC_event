@@ -1,4 +1,4 @@
-package com.example.firebase_demo
+package com.example.fc_event
 
 import io.flutter.embedding.android.FlutterActivity
 
