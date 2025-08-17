@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "931037647498",
+    "project_id": "demoboardapp-ed022",
+    "storage_bucket": "demoboardapp-ed022.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:931037647498:android:bad56723d5713366de5373",
+        "android_client_info": {
+          "package_name": "com.example.firebase_demo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-Z_dsoumz5PSBKg2bqy2Bw1KHDxbvi7A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
