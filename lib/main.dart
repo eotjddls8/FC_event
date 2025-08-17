@@ -146,7 +146,7 @@ class _TestScreenState extends State<TestScreen> {
                       );
                       myBanner!.load();
                     },
-                    child: Text('광고 다시 로드'),
+                    child: Text('광고 다시 로드!'),
                     style: ElevatedButton.styleFrom(
                       padding: EdgeInsets.all(20),
                     ),
