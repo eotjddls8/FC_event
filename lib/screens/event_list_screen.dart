@@ -10,8 +10,6 @@ import 'event_detail_screen.dart';  // post_detail_screen.dart에서 변경
 import 'login_screen.dart';
 import 'simple_ad_test_screen.dart';
 
-
-
 class EventListScreen extends StatelessWidget {
   final UserModel? currentUser;
   final AuthService _authService = AuthService();
@@ -20,6 +18,40 @@ class EventListScreen extends StatelessWidget {
 
   Future<void> _logout(BuildContext context) async {
     await _authService.signOut();
+  }
+
+  // 이벤트 정렬 함수 수정 (3단계 정렬)
+  List<Event> sortEventsByDeadline(List<Event> events) {
+    final now = DateTime.now();
+    final ongoingEvents = <Event>[];    // 진행 중
+    final upcomingEvents = <Event>[];   // 시작 예정
+    final expiredEvents = <Event>[];    // 종료됨
+
+    // 이벤트를 3단계로 분리
+    for (final event in events) {
+      if (event.endDate.isBefore(now)) {
+        // 종료된 이벤트
+        expiredEvents.add(event);
+      } else if (event.startDate.isAfter(now)) {
+        // 아직 시작되지 않은 이벤트
+        upcomingEvents.add(event);
+      } else {
+        // 진행 중인 이벤트 (startDate <= now < endDate)
+        ongoingEvents.add(event);
+      }
+    }
+
+    // 1. 진행 중 이벤트: 마감일 가까운 순으로 정렬 (오름차순)
+    ongoingEvents.sort((a, b) => a.endDate.compareTo(b.endDate));
+
+    // 2. 시작 예정 이벤트: 시작일 가까운 순으로 정렬 (오름차순)
+    upcomingEvents.sort((a, b) => a.startDate.compareTo(b.startDate));
+
+    // 3. 종료된 이벤트: 최근 종료된 순으로 정렬 (내림차순)
+    expiredEvents.sort((a, b) => b.endDate.compareTo(a.endDate));
+
+    // 진행 중 → 시작 예정 → 종료됨 순서로 배치
+    return [...ongoingEvents, ...upcomingEvents, ...expiredEvents];
   }
 
   @override
@@ -35,6 +67,7 @@ class EventListScreen extends StatelessWidget {
         ),
         backgroundColor: FifaColors.primary,
         actions: [
+          // 비회원도 광고 테스트는 볼 수 있음
           IconButton(
             onPressed: () {
               Navigator.push(
@@ -48,6 +81,7 @@ class EventListScreen extends StatelessWidget {
             tooltip: '광고 테스트',
           ),
           if (currentUser != null) ...[
+            // 로그인한 사용자만 프로필 메뉴 표시
             PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'logout') {
@@ -61,7 +95,7 @@ class EventListScreen extends StatelessWidget {
                     children: [
                       Icon(currentUser!.isAdmin ? Icons.admin_panel_settings : Icons.person),
                       SizedBox(width: 8),
-                      Text('${currentUser!.name}'),
+                      Text('${currentUser!.name} (${currentUser!.role})'),
                     ],
                   ),
                 ),
@@ -78,6 +112,7 @@ class EventListScreen extends StatelessWidget {
               ],
             ),
           ] else ...[
+            // 비회원은 로그인 버튼 표시
             TextButton(
               onPressed: () {
                 Navigator.push(
@@ -96,8 +131,7 @@ class EventListScreen extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('events')
-            .orderBy('startDate', descending: false)
-            .snapshots(),
+            .snapshots(), // orderBy 제거 - 클라이언트에서 정렬할 것임
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
@@ -170,11 +204,14 @@ class EventListScreen extends StatelessWidget {
             );
           }
 
+          // 🎯 여기서 이벤트 정렬!
+          final sortedEvents = sortEventsByDeadline(events);
+
           return ListView.builder(
             padding: EdgeInsets.all(16),
-            itemCount: events.length,
+            itemCount: sortedEvents.length,
             itemBuilder: (context, index) {
-              final event = events[index];
+              final event = sortedEvents[index];
               return _buildEventCard(context, event);
             },
           );
@@ -199,31 +236,74 @@ class EventListScreen extends StatelessWidget {
   }
 
   Widget _buildEventCard(BuildContext context, Event event) {
+    final now = DateTime.now();
+    final isExpired = event.endDate.isBefore(now);
+    final isUpcoming = event.startDate.isAfter(now);
+    final isOngoing = !isExpired && !isUpcoming;
+
+    // 상태에 따른 색상 설정
+    Color cardBorderColor;
+    Color statusBadgeColor;
+    String statusText;
+
+    if (isExpired) {
+      cardBorderColor = Colors.grey[300]!;
+      statusBadgeColor = Colors.grey[400]!;
+      statusText = '종료됨';
+    } else if (isUpcoming) {
+      cardBorderColor = Colors.blue[300]!;
+      statusBadgeColor = Colors.blue[600]!;
+      statusText = '시작 예정';
+    } else {
+      cardBorderColor = event.statusColor;
+      statusBadgeColor = event.statusColor;
+      statusText = event.statusText;
+    }
+
     return Container(
       margin: EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: event.statusColor,
+          color: cardBorderColor,
           width: 3,
         ),
         boxShadow: [
           BoxShadow(
-            color: event.statusColor.withOpacity(0.2),
+            color: isExpired
+                ? Colors.grey.withOpacity(0.1)
+                : cardBorderColor.withOpacity(0.2),
             blurRadius: 8,
             offset: Offset(0, 4),
           ),
         ],
       ),
       child: InkWell(
-        onTap: () {
+        onTap: currentUser != null ? () {
+          // 로그인한 사용자만 이벤트 상세 접근 가능
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => EventDetailScreen(
                 event: event,
                 currentUser: currentUser,
+              ),
+            ),
+          );
+        } : () {
+          // 비회원은 로그인 유도
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('이벤트 참여를 위해 로그인해주세요'),
+              action: SnackBarAction(
+                label: '로그인',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => LoginScreen()),
+                  );
+                },
               ),
             ),
           );
@@ -240,11 +320,11 @@ class EventListScreen extends StatelessWidget {
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: event.statusColor,
+                      color: statusBadgeColor,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      event.statusText,
+                      statusText,
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -252,6 +332,25 @@ class EventListScreen extends StatelessWidget {
                       ),
                     ),
                   ),
+                  SizedBox(width: 8),
+                  // 남은 일수 표시 추가
+                  if (!isExpired) ...[
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isUpcoming ? Colors.blue[100] : Colors.red[100],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _calculateRemainingDays(event.startDate, event.endDate),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isUpcoming ? Colors.blue[700] : Colors.red[700],
+                        ),
+                      ),
+                    ),
+                  ],
                   Spacer(),
                   if (currentUser?.isAdmin == true)
                     IconButton(
@@ -269,7 +368,7 @@ class EventListScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: FifaColors.textPrimary,
+                  color: isExpired ? Colors.grey[600] : FifaColors.textPrimary,
                 ),
               ),
 
@@ -281,7 +380,7 @@ class EventListScreen extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: FifaColors.textSecondary,
+                  color: isExpired ? Colors.grey[500] : FifaColors.textSecondary,
                   height: 1.4,
                 ),
               ),
@@ -292,30 +391,51 @@ class EventListScreen extends StatelessWidget {
               Container(
                 padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: FifaColors.background,
+                  color: isExpired ? Colors.grey[50] : FifaColors.background,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.schedule, size: 16, color: FifaColors.textSecondary),
+                    Icon(
+                      Icons.schedule,
+                      size: 16,
+                      color: isExpired ? Colors.grey[400] : FifaColors.textSecondary,
+                    ),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '${_formatDate(event.startDate)} ~ ${_formatDate(event.endDate)}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: FifaColors.textSecondary,
+                          color: isExpired ? Colors.grey[500] : FifaColors.textSecondary,
                         ),
                       ),
                     ),
-                    // 좋아요 수
-                    Icon(Icons.favorite, color: Colors.red, size: 16),
-                    SizedBox(width: 4),
-                    Text(
-                      event.likes.toString(),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: FifaColors.textSecondary,
+                    // 좋아요 수 - 클릭 가능 (로그인한 사용자만)
+                    InkWell(
+                      onTap: currentUser != null ? () {
+                        // 좋아요 기능 (회원만)
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('좋아요 기능은 개발 중입니다')),
+                        );
+                      } : null,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.favorite,
+                            color: isExpired ? Colors.grey[400] : Colors.red,
+                            size: 16,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            event.likes.toString(),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isExpired ? Colors.grey[500] : FifaColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -326,6 +446,36 @@ class EventListScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // 남은 일수 계산 함수 수정 (시작 예정 이벤트 포함)
+  String _calculateRemainingDays(DateTime startDate, DateTime endDate) {
+    final now = DateTime.now();
+
+    if (endDate.isBefore(now)) {
+      // 종료된 이벤트
+      return '종료됨';
+    } else if (startDate.isAfter(now)) {
+      // 시작 예정 이벤트
+      final daysToStart = startDate.difference(now).inDays;
+      if (daysToStart == 0) {
+        return '오늘 시작';
+      } else if (daysToStart == 1) {
+        return '내일 시작';
+      } else {
+        return '$daysToStart일 후 시작';
+      }
+    } else {
+      // 진행 중 이벤트
+      final daysToEnd = endDate.difference(now).inDays;
+      if (daysToEnd == 0) {
+        return '오늘 마감';
+      } else if (daysToEnd == 1) {
+        return '내일 마감';
+      } else {
+        return '$daysToEnd일 남음';
+      }
+    }
   }
 
   String _formatDate(DateTime dateTime) {

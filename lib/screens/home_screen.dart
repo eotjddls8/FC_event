@@ -3,9 +3,14 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../ad_helper.dart';
 import 'interstitial_example.dart';
 import 'rewarded_example.dart';
+import '../models/user_model.dart'; // 이 줄 추가
+
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final UserModel? currentUser; // 이 줄 추가
+
+
+  const HomeScreen({Key? key, this.currentUser}) : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();

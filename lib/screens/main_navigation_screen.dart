@@ -3,9 +3,11 @@ import '../models/user_model.dart';
 import '../theme/fifa_theme.dart';
 import 'event_list_screen.dart';
 import 'ad_reward_screen.dart';
+import 'home_screen.dart';
+import 'login_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
-  final UserModel? currentUser;
+  final UserModel? currentUser; // null이면 비회원
 
   const MainNavigationScreen({Key? key, this.currentUser}) : super(key: key);
 
@@ -15,16 +17,52 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 0;
-
   late List<Widget> _screens;
+  late List<BottomNavigationBarItem> _navItems;
 
   @override
   void initState() {
     super.initState();
-    _screens = [
-      EventListScreen(currentUser: widget.currentUser),
-      AdRewardScreen(currentUser: widget.currentUser),
-    ];
+    print('MainNavigationScreen - currentUser: ${widget.currentUser?.name ?? "비회원"} (${widget.currentUser?.role ?? "guest"})');
+
+    if (widget.currentUser != null) {
+      // 로그인한 사용자: 모든 기능 접근 가능
+      _screens = [
+        EventListScreen(currentUser: widget.currentUser),
+        AdRewardScreen(),
+        HomeScreen(),
+      ];
+      _navItems = [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.sports_soccer),
+          label: 'FIFA 이벤트',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.card_giftcard),
+          label: '광고 보상',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home),
+          label: '홈',
+        ),
+      ];
+    } else {
+      // 비회원: 이벤트 보기 + 로그인 화면만
+      _screens = [
+        EventListScreen(currentUser: null), // 비회원도 이벤트 목록 볼 수 있음
+        LoginScreen(), // 로그인 화면
+      ];
+      _navItems = [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.sports_soccer),
+          label: 'FIFA 이벤트',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.login),
+          label: '로그인',
+        ),
+      ];
+    }
   }
 
   void _onItemTapped(int index) {
@@ -55,16 +93,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           fontSize: 12,
         ),
         elevation: 8,
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.sports_soccer),
-            label: 'FIFA 이벤트',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.card_giftcard),
-            label: '광고 보상',
-          ),
-        ],
+        items: _navItems,
       ),
     );
   }

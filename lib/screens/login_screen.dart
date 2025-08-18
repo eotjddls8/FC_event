@@ -4,6 +4,9 @@ import '../models/user_model.dart';
 import '../theme/fifa_theme.dart';
 import 'event_list_screen.dart';
 import 'signup_screen.dart'; // 추가
+import 'main_navigation_screen.dart'; // 🎯 이 줄 추가!
+
+
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -33,13 +36,31 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // 기존 signIn 메서드 사용 - 결과는 무시하고 AuthWrapper가 처리하도록 함
-      await _authService.signIn(
+      // signIn 메서드에서 UserModel을 반환받음
+      final user = await _authService.signIn(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
 
-      // AuthWrapper가 자동으로 화면을 전환하므로 별도 처리 불필요
+      print('로그인 결과: $user'); // 디버그
+
+      // 로그인 성공 시 화면 전환
+      if (user != null && mounted) {
+        print('화면 전환 시도'); // 디버그
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MainNavigationScreen(currentUser: user),
+          ),
+        );
+      } else {
+        print('사용자 정보 없음'); // 디버그
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('로그인에 실패했습니다. 다시 시도해주세요.')),
+          );
+        }
+      }
 
     } catch (e) {
       print('로그인 에러: $e');
