@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'screens/main_navigation_screen.dart';
-import 'screens/login_screen.dart';
-import 'services/auth_service.dart';
-import 'models/user_model.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'screens/splash_screen.dart'; // 🎯 스플래시 화면으로 변경
 import 'theme/fifa_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Firebase 초기화
   await Firebase.initializeApp();
+
   runApp(MyApp());
 }
 
@@ -22,8 +22,19 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         fontFamily: 'Roboto',
       ),
-      // 항상 MainNavigationScreen부터 시작 (비회원도 접근 가능)
-      home: MainNavigationScreen(currentUser: null), // null = 비회원
+      // 🎯 한국어 지원 추가
+      localizationsDelegates: [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: [
+        Locale('ko', 'KR'), // 한국어
+        Locale('en', 'US'), // 영어
+      ],
+      locale: Locale('ko', 'KR'), // 기본 언어를 한국어로 설정
+      // 🎯 스플래시 화면부터 시작
+      home: SplashScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

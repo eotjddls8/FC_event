@@ -5,6 +5,7 @@ import 'event_list_screen.dart';
 import 'ad_reward_screen.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
+import 'settings_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final UserModel? currentUser; // null이면 비회원
@@ -29,21 +30,22 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       // 로그인한 사용자: 모든 기능 접근 가능
       _screens = [
         EventListScreen(currentUser: widget.currentUser),
-        AdRewardScreen(),
-        HomeScreen(),
+        //AdRewardScreen(),
+        SettingsScreen(currentUser: widget.currentUser),
+        //HomeScreen(),
       ];
       _navItems = [
         BottomNavigationBarItem(
           icon: Icon(Icons.sports_soccer),
-          label: 'FIFA 이벤트',
+          label: 'FC 이벤트',
         ),
+        // BottomNavigationBarItem(
+        //   icon: Icon(Icons.card_giftcard),
+        //   label: '광고 보상',
+        // ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.card_giftcard),
-          label: '광고 보상',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home),
-          label: '홈',
+          icon: Icon(Icons.settings),
+          label: '설정',
         ),
       ];
     } else {
@@ -55,7 +57,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       _navItems = [
         BottomNavigationBarItem(
           icon: Icon(Icons.sports_soccer),
-          label: 'FIFA 이벤트',
+          label: 'FC 이벤트',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.login),

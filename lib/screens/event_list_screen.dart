@@ -1,101 +1,148 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/event.dart';  // post.dart에서 event.dart로 변경
+import '../models/event.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../theme/fifa_theme.dart';
-import '../widgets/banner_ad_widget.dart';  // 추가
-import 'event_write_screen.dart';  // post_write_screen.dart에서 변경
-import 'event_detail_screen.dart';  // post_detail_screen.dart에서 변경
+import '../widgets/banner_ad_widget.dart';
+import 'event_write_screen.dart';
+import 'event_detail_screen.dart';
 import 'login_screen.dart';
 import 'simple_ad_test_screen.dart';
+import 'main_navigation_screen.dart'; // 🎯 로그아웃용 import
 
-class EventListScreen extends StatelessWidget {
+class EventListScreen extends StatefulWidget {
   final UserModel? currentUser;
+
+  const EventListScreen({Key? key, this.currentUser}) : super(key: key);
+
+  @override
+  _EventListScreenState createState() => _EventListScreenState();
+}
+
+class _EventListScreenState extends State<EventListScreen> {
   final AuthService _authService = AuthService();
 
-  EventListScreen({this.currentUser});
+  // 🔧 완전한 로그아웃 함수
+  Future<void> _logout() async {
+    try {
+      print('로그아웃 시도 중...');
 
-  Future<void> _logout(BuildContext context) async {
-    await _authService.signOut();
+      // Firebase 세션 종료
+      await _authService.signOut();
+      print('Firebase 로그아웃 완료');
+
+      // 모든 화면을 제거하고 비회원 상태로 돌아가기
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MainNavigationScreen(currentUser: null), // 비회원 상태
+          ),
+              (route) => false, // 모든 이전 화면 제거
+        );
+
+        // 성공 메시지
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('로그아웃되었습니다'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('로그아웃 에러: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('로그아웃 중 오류가 발생했습니다'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  // 이벤트 정렬 함수 수정 (3단계 정렬)
+  // 이벤트 정렬 함수
   List<Event> sortEventsByDeadline(List<Event> events) {
     final now = DateTime.now();
-    final ongoingEvents = <Event>[];    // 진행 중
-    final upcomingEvents = <Event>[];   // 시작 예정
-    final expiredEvents = <Event>[];    // 종료됨
 
-    // 이벤트를 3단계로 분리
-    for (final event in events) {
-      if (event.endDate.isBefore(now)) {
-        // 종료된 이벤트
-        expiredEvents.add(event);
-      } else if (event.startDate.isAfter(now)) {
-        // 아직 시작되지 않은 이벤트
+    // 3개 그룹으로 분리
+    List<Event> ongoingEvents = [];  // 진행 중
+    List<Event> upcomingEvents = []; // 시작 예정
+    List<Event> endedEvents = [];    // 종료됨
+
+    for (Event event in events) {
+      if (event.status == EventStatus.upcoming) {
         upcomingEvents.add(event);
+      } else if (event.status == EventStatus.ended) {
+        endedEvents.add(event);
       } else {
-        // 진행 중인 이벤트 (startDate <= now < endDate)
         ongoingEvents.add(event);
       }
     }
 
-    // 1. 진행 중 이벤트: 마감일 가까운 순으로 정렬 (오름차순)
-    ongoingEvents.sort((a, b) => a.endDate.compareTo(b.endDate));
+    // 각 그룹 내에서 정렬
+    ongoingEvents.sort((a, b) => a.endDate.compareTo(b.endDate));        // 마감일 가까운 순
+    upcomingEvents.sort((a, b) => a.startDate.compareTo(b.startDate));   // 시작일 가까운 순
+    endedEvents.sort((a, b) => b.endDate.compareTo(a.endDate));          // 최근 종료 순
 
-    // 2. 시작 예정 이벤트: 시작일 가까운 순으로 정렬 (오름차순)
-    upcomingEvents.sort((a, b) => a.startDate.compareTo(b.startDate));
+    // 최종 순서: 진행중 → 예정 → 종료
+    return [...ongoingEvents, ...upcomingEvents, ...endedEvents];
+  }
 
-    // 3. 종료된 이벤트: 최근 종료된 순으로 정렬 (내림차순)
-    expiredEvents.sort((a, b) => b.endDate.compareTo(a.endDate));
+  // 남은 일수 계산 (Event 모델의 statusText 사용)
+  String calculateRemainingDays(Event event) {
+    return event.statusText;
+  }
 
-    // 진행 중 → 시작 예정 → 종료됨 순서로 배치
-    return [...ongoingEvents, ...upcomingEvents, ...expiredEvents];
+  // 이벤트 상태 확인 (Event 모델의 status 사용)
+  String getEventStatus(Event event) {
+    switch (event.status) {
+      case EventStatus.upcoming:
+        return "upcoming";
+      case EventStatus.ended:
+        return "ended";
+      case EventStatus.active:
+        return "ongoing";
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: Row(
-          children: [
-            Icon(Icons.sports_soccer, color: FifaColors.accent),
-            SizedBox(width: 8),
-            Text('FIFA 이벤트'),
-          ],
+        title: Text(
+          'FIFA 이벤트',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         backgroundColor: FifaColors.primary,
+        elevation: 0,
+        automaticallyImplyLeading: false,
         actions: [
-          // 비회원도 광고 테스트는 볼 수 있음
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SimpleAdTestScreen(),
-                ),
-              );
-            },
-            icon: Icon(Icons.ads_click),
-            tooltip: '광고 테스트',
-          ),
-          if (currentUser != null) ...[
-            // 로그인한 사용자만 프로필 메뉴 표시
+          // 로그인/프로필 메뉴
+          if (widget.currentUser != null)
+          // 로그인된 상태: 프로필 메뉴
             PopupMenuButton<String>(
+              icon: Icon(Icons.account_circle, color: Colors.white, size: 28),
               onSelected: (value) {
                 if (value == 'logout') {
-                  _logout(context);
+                  _logout(); // 🎯 로그아웃 함수 호출
                 }
               },
-              itemBuilder: (context) => [
+              itemBuilder: (BuildContext context) => [
                 PopupMenuItem(
                   value: 'profile',
                   child: Row(
                     children: [
-                      Icon(currentUser!.isAdmin ? Icons.admin_panel_settings : Icons.person),
+                      Icon(Icons.person, color: FifaColors.primary),
                       SizedBox(width: 8),
-                      Text('${currentUser!.name} (${currentUser!.role})'),
+                      Text('${widget.currentUser!.name} (${widget.currentUser!.role})'),
                     ],
                   ),
                 ),
@@ -103,127 +150,302 @@ class EventListScreen extends StatelessWidget {
                   value: 'logout',
                   child: Row(
                     children: [
-                      Icon(Icons.logout),
+                      Icon(Icons.logout, color: Colors.red),
                       SizedBox(width: 8),
-                      Text('로그아웃'),
+                      Text('로그아웃', style: TextStyle(color: Colors.red)),
                     ],
                   ),
                 ),
               ],
-            ),
-          ] else ...[
-            // 비회원은 로그인 버튼 표시
-            TextButton(
+            )
+          else
+          // 비회원 상태: 로그인 버튼
+            TextButton.icon(
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => LoginScreen()),
                 );
               },
-              child: Text(
-                '로그인',
-                style: TextStyle(color: Colors.white),
-              ),
+              icon: Icon(Icons.login, color: Colors.white),
+              label: Text('로그인', style: TextStyle(color: Colors.white)),
             ),
-          ],
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('events')
-            .snapshots(), // orderBy 제거 - 클라이언트에서 정렬할 것임
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline, size: 64, color: Colors.red),
-                  SizedBox(height: 16),
-                  Text('오류가 발생했습니다: ${snapshot.error}'),
-                ],
-              ),
-            );
-          }
+      body: Column(
+        children: [
+          // 배너 광고
+          BannerAdWidget(),
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(FifaColors.primary),
-                  ),
-                  SizedBox(height: 16),
-                  Text('FIFA 이벤트 로딩 중...'),
-                ],
-              ),
-            );
-          }
-
-          final events = snapshot.data!.docs
-              .map((doc) => Event.fromFirestore(doc))
-              .toList();
-
-          if (events.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: FifaColors.primary.withOpacity(0.1),
-                      shape: BoxShape.circle,
+          // 이벤트 목록
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('events')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, size: 64, color: Colors.red),
+                        SizedBox(height: 16),
+                        Text('오류가 발생했습니다', style: TextStyle(fontSize: 18)),
+                        SizedBox(height: 8),
+                        Text(snapshot.error.toString(), style: TextStyle(color: Colors.grey)),
+                      ],
                     ),
-                    child: Icon(
-                      Icons.sports_soccer,
-                      size: 60,
-                      color: FifaColors.primary,
-                    ),
-                  ),
-                  SizedBox(height: 24),
-                  Text(
-                    '등록된 FIFA 이벤트가 없습니다',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: FifaColors.textPrimary,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    currentUser?.isAdmin == true
-                        ? '첫 번째 이벤트를 추가해보세요!'
-                        : '관리자가 이벤트를 추가할 때까지 기다려주세요.',
-                    style: TextStyle(color: FifaColors.textSecondary),
-                  ),
-                ],
-              ),
-            );
-          }
+                  );
+                }
 
-          // 🎯 여기서 이벤트 정렬!
-          final sortedEvents = sortEventsByDeadline(events);
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(color: FifaColors.primary),
+                        SizedBox(height: 16),
+                        Text('이벤트를 불러오는 중...', style: TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+                  );
+                }
 
-          return ListView.builder(
-            padding: EdgeInsets.all(16),
-            itemCount: sortedEvents.length,
-            itemBuilder: (context, index) {
-              final event = sortedEvents[index];
-              return _buildEventCard(context, event);
-            },
-          );
-        },
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.sports_soccer, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text('등록된 이벤트가 없습니다', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                      ],
+                    ),
+                  );
+                }
+
+                final events = snapshot.data!.docs.map((doc) => Event.fromFirestore(doc)).toList();
+                final sortedEvents = sortEventsByDeadline(events);
+
+                return ListView.builder(
+                  padding: EdgeInsets.all(16),
+                  itemCount: sortedEvents.length,
+                  itemBuilder: (context, index) {
+                    final event = sortedEvents[index];
+                    final status = getEventStatus(event);
+                    final remainingDays = calculateRemainingDays(event);
+
+                    return Container(
+                      margin: EdgeInsets.only(bottom: 16),
+                      child: Card(
+                        elevation: status == 'ended' ? 2 : 6,
+                        shadowColor: status == 'ongoing' ? Colors.red.withOpacity(0.3) :
+                        status == 'upcoming' ? Colors.blue.withOpacity(0.3) :
+                        Colors.grey.withOpacity(0.3),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: event.statusColor,
+                            width: status == 'ended' ? 1 : 2,
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            decoration: status == 'ended'
+                                ? null
+                                : BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.white,
+                                  event.statusColor.withOpacity(0.05),
+                                ],
+                              ),
+                            ),
+                            child: InkWell(
+                              onTap: () {
+                                if (widget.currentUser == null) {
+                                  // 비회원: 로그인 유도
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('이벤트 참여를 위해 로그인해주세요'),
+                                      action: SnackBarAction(
+                                        label: '로그인',
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(builder: (context) => LoginScreen()),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  // 로그인된 사용자: 상세화면으로
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => EventDetailScreen(
+                                        event: event,
+                                        currentUser: widget.currentUser!,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // 상단: 제목과 상태 배지
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            event.title,
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: status == 'ended' ? Colors.grey : Colors.black87,
+                                            ),
+                                          ),
+                                        ),
+                                        // 상태 배지
+                                        Container(
+                                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: event.statusColor,
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            remainingDays,
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    SizedBox(height: 8),
+
+                                    // 설명
+                                    Text(
+                                      event.content,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: status == 'ended' ? Colors.grey : Colors.grey[600],
+                                        height: 1.3,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+
+                                    SizedBox(height: 12),
+
+                                    // 하단: 보상과 액션
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        // 보상 정보 (좋아요 수로 대체)
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.favorite,
+                                              size: 16,
+                                              color: status == 'ended' ? Colors.grey : Colors.red,
+                                            ),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              '${event.likes}',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: status == 'ended' ? Colors.grey : Colors.red,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+
+                                        // 액션 버튼들
+                                        Row(
+                                          children: [
+                                            // 관리자 삭제 버튼
+                                            if (widget.currentUser?.isAdmin == true)
+                                              IconButton(
+                                                onPressed: () async {
+                                                  final confirmed = await showDialog<bool>(
+                                                    context: context,
+                                                    builder: (context) => AlertDialog(
+                                                      title: Text('이벤트 삭제'),
+                                                      content: Text('정말로 이 이벤트를 삭제하시겠습니까?'),
+                                                      actions: [
+                                                        TextButton(
+                                                          onPressed: () => Navigator.pop(context, false),
+                                                          child: Text('취소'),
+                                                        ),
+                                                        TextButton(
+                                                          onPressed: () => Navigator.pop(context, true),
+                                                          child: Text('삭제', style: TextStyle(color: Colors.red)),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+
+                                                  if (confirmed == true) {
+                                                    try {
+                                                      await FirebaseFirestore.instance
+                                                          .collection('events')
+                                                          .doc(event.id)
+                                                          .delete();
+
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        SnackBar(content: Text('이벤트가 삭제되었습니다')),
+                                                      );
+                                                    } catch (e) {
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        SnackBar(content: Text('삭제 중 오류가 발생했습니다')),
+                                                      );
+                                                    }
+                                                  }
+                                                },
+                                                icon: Icon(Icons.delete, color: Colors.red),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: currentUser?.isAdmin == true
+
+      // 관리자용 이벤트 추가 버튼
+      floatingActionButton: (widget.currentUser?.isAdmin == true)
           ? FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => EventWriteScreen(currentUser: currentUser!),
+              builder: (context) => EventWriteScreen(currentUser: widget.currentUser!),
             ),
           );
         },
@@ -233,293 +455,5 @@ class EventListScreen extends StatelessWidget {
       )
           : null,
     );
-  }
-
-  Widget _buildEventCard(BuildContext context, Event event) {
-    final now = DateTime.now();
-    final isExpired = event.endDate.isBefore(now);
-    final isUpcoming = event.startDate.isAfter(now);
-    final isOngoing = !isExpired && !isUpcoming;
-
-    // 상태에 따른 색상 설정
-    Color cardBorderColor;
-    Color statusBadgeColor;
-    String statusText;
-
-    if (isExpired) {
-      cardBorderColor = Colors.grey[300]!;
-      statusBadgeColor = Colors.grey[400]!;
-      statusText = '종료됨';
-    } else if (isUpcoming) {
-      cardBorderColor = Colors.blue[300]!;
-      statusBadgeColor = Colors.blue[600]!;
-      statusText = '시작 예정';
-    } else {
-      cardBorderColor = event.statusColor;
-      statusBadgeColor = event.statusColor;
-      statusText = event.statusText;
-    }
-
-    return Container(
-      margin: EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: cardBorderColor,
-          width: 3,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isExpired
-                ? Colors.grey.withOpacity(0.1)
-                : cardBorderColor.withOpacity(0.2),
-            blurRadius: 8,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: currentUser != null ? () {
-          // 로그인한 사용자만 이벤트 상세 접근 가능
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => EventDetailScreen(
-                event: event,
-                currentUser: currentUser,
-              ),
-            ),
-          );
-        } : () {
-          // 비회원은 로그인 유도
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('이벤트 참여를 위해 로그인해주세요'),
-              action: SnackBarAction(
-                label: '로그인',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => LoginScreen()),
-                  );
-                },
-              ),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 상태 배지와 제목
-              Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: statusBadgeColor,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      statusText,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  // 남은 일수 표시 추가
-                  if (!isExpired) ...[
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isUpcoming ? Colors.blue[100] : Colors.red[100],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        _calculateRemainingDays(event.startDate, event.endDate),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: isUpcoming ? Colors.blue[700] : Colors.red[700],
-                        ),
-                      ),
-                    ),
-                  ],
-                  Spacer(),
-                  if (currentUser?.isAdmin == true)
-                    IconButton(
-                      icon: Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _deleteEvent(context, event),
-                    ),
-                ],
-              ),
-
-              SizedBox(height: 12),
-
-              // 제목
-              Text(
-                event.title,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: isExpired ? Colors.grey[600] : FifaColors.textPrimary,
-                ),
-              ),
-
-              SizedBox(height: 8),
-
-              // 내용 미리보기
-              Text(
-                event.content,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: isExpired ? Colors.grey[500] : FifaColors.textSecondary,
-                  height: 1.4,
-                ),
-              ),
-
-              SizedBox(height: 12),
-
-              // 기간 정보
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isExpired ? Colors.grey[50] : FifaColors.background,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.schedule,
-                      size: 16,
-                      color: isExpired ? Colors.grey[400] : FifaColors.textSecondary,
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${_formatDate(event.startDate)} ~ ${_formatDate(event.endDate)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isExpired ? Colors.grey[500] : FifaColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                    // 좋아요 수 - 클릭 가능 (로그인한 사용자만)
-                    InkWell(
-                      onTap: currentUser != null ? () {
-                        // 좋아요 기능 (회원만)
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('좋아요 기능은 개발 중입니다')),
-                        );
-                      } : null,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.favorite,
-                            color: isExpired ? Colors.grey[400] : Colors.red,
-                            size: 16,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            event.likes.toString(),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isExpired ? Colors.grey[500] : FifaColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // 남은 일수 계산 함수 수정 (시작 예정 이벤트 포함)
-  String _calculateRemainingDays(DateTime startDate, DateTime endDate) {
-    final now = DateTime.now();
-
-    if (endDate.isBefore(now)) {
-      // 종료된 이벤트
-      return '종료됨';
-    } else if (startDate.isAfter(now)) {
-      // 시작 예정 이벤트
-      final daysToStart = startDate.difference(now).inDays;
-      if (daysToStart == 0) {
-        return '오늘 시작';
-      } else if (daysToStart == 1) {
-        return '내일 시작';
-      } else {
-        return '$daysToStart일 후 시작';
-      }
-    } else {
-      // 진행 중 이벤트
-      final daysToEnd = endDate.difference(now).inDays;
-      if (daysToEnd == 0) {
-        return '오늘 마감';
-      } else if (daysToEnd == 1) {
-        return '내일 마감';
-      } else {
-        return '$daysToEnd일 남음';
-      }
-    }
-  }
-
-  String _formatDate(DateTime dateTime) {
-    return '${dateTime.month}/${dateTime.day}';
-  }
-
-  Future<void> _deleteEvent(BuildContext context, Event event) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('이벤트 삭제'),
-        content: Text('정말로 이 이벤트를 삭제하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('삭제', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('events')
-            .doc(event.id)
-            .delete();
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('이벤트가 삭제되었습니다.')),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('삭제 실패: $e')),
-          );
-        }
-      }
-    }
   }
 }
