@@ -38,6 +38,40 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.0
+  # 🎯 Native Splash 추가 (여기에!)
+  flutter_native_splash: ^2.4.1
+  flutter_launcher_icons: ^0.13.1
+
+# 🎯 Native Splash 설정
+flutter_native_splash:
+  # 배경색
+  color: "#FFFFFF"
+
+  # 로고 이미지
+  image: assets/splash_logo.png
+
+  # 안드로이드 & iOS 지원
+  android_12:
+    image: assets/splash_logo.png
+    color: "#FFFFFF"
+  ios: true
+
+  # 기타 설정
+  android_gravity: center
+  ios_content_mode: center
+  fullscreen: true
+
+# 앱 아이콘
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/app_icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  #adaptive_icon_foreground: "assets/app_icon_foreground.png"
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/splash_logo.png
+    - assets/app_icon.png
+    #- assets/app_icon_foreground.png
