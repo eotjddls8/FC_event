@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // 🎯 Firestore 추가
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:io'; // 🎯 Platform.isAndroid, Platform.isIOS 사용을 위해 추가
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../theme/fifa_theme.dart';
 import 'login_screen.dart';
 import 'main_navigation_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:in_app_review/in_app_review.dart';
 
 class SettingsScreen extends StatefulWidget {
   final UserModel? currentUser;
@@ -18,15 +21,85 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final AuthService _authService = AuthService();
+  final InAppReview inAppReview = InAppReview.instance;
   bool _pushNotifications = true;
   bool _emailNotifications = false;
   bool _darkMode = false;
   String _language = '한국어';
 
   // 문의용 정보
-  final String _supportEmail = 'support@fifaevents.com';
-  final String _adminContact = 'admin@fifaevents.com';
+  final String _supportEmail = 'support@pionevents.com';
+  final String _adminContact = 'admin@pionevents.com';
   final String _appVersion = '1.0.0';
+
+  // 🎯 앱 평가하기 함수
+  Future<void> _rateApp() async {
+    try {
+      // 먼저 인앱 리뷰 시도 (더 자연스러움)
+      if (await inAppReview.isAvailable()) {
+        await inAppReview.requestReview();
+      } else {
+        // 인앱 리뷰가 안되면 스토어로 이동
+        await inAppReview.openStoreListing();
+      }
+    } catch (e) {
+      // 실패 시 직접 스토어 URL 열기
+      await _openStoreDirectly();
+    }
+  }
+
+  // 🎯 스토어 직접 열기
+  Future<void> _openStoreDirectly() async {
+    const String androidPackageName = 'com.jonglee.pionevent';
+    const String iOSAppId = '123456789'; // 실제 앱 ID로 변경 필요
+
+    try {
+      if (Platform.isAndroid) {
+        // Google Play Store
+        final Uri playStoreUri = Uri.parse('market://details?id=$androidPackageName');
+        final Uri playStoreWebUri = Uri.parse('https://play.google.com/store/apps/details?id=$androidPackageName');
+
+        if (await canLaunchUrl(playStoreUri)) {
+          await launchUrl(playStoreUri);
+        } else {
+          await launchUrl(playStoreWebUri);
+        }
+      } else if (Platform.isIOS) {
+        // Apple App Store
+        final Uri appStoreUri = Uri.parse('itms-apps://itunes.apple.com/app/id$iOSAppId');
+        final Uri appStoreWebUri = Uri.parse('https://apps.apple.com/app/id$iOSAppId');
+
+        if (await canLaunchUrl(appStoreUri)) {
+          await launchUrl(appStoreUri);
+        } else {
+          await launchUrl(appStoreWebUri);
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('스토어를 열 수 없습니다. 나중에 다시 시도해주세요.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // 🎯 기타 유용한 링크들
+  Future<void> _openWebsite(String url) async {
+    final Uri uri = Uri.parse(url);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        throw '링크를 열 수 없습니다';
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('링크를 열 수 없습니다: $e')),
+      );
+    }
+  }
 
   // 🔧 로그아웃 함수
   Future<void> _logout() async {
@@ -538,11 +611,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   leading: Icons.star_rate,
                   title: '앱 평가하기',
                   subtitle: '앱스토어에서 평가를 남겨주세요',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('앱스토어 연결 기능은 준비 중입니다')),
-                    );
-                  },
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.star, color: Colors.amber, size: 16),
+                      SizedBox(width: 4),
+                      Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                    ],
+                  ),
+                  onTap: () => _rateApp(), // 🎯 실제 함수 연결!
                 ),
               ],
             ),
@@ -554,7 +631,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 _buildListTile(
                   leading: Icons.sports_soccer,
-                  title: 'FIFA 이벤트 앱',
+                  title: '피온 이벤트 알림',
                   subtitle: '버전 $_appVersion',
                 ),
                 Divider(height: 1),
@@ -668,7 +745,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             // 저작권 정보
             Text(
-              '© 2024 FIFA Events App\nMade with ❤️ for FIFA fans',
+              '© 2024 피온 이벤트 알림\nMade with ❤️ for PION fans',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,

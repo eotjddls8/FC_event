@@ -34,6 +34,10 @@ dependencies:
   # 광고 빈도 관리용
   shared_preferences: ^2.2.2
 
+  # 🎯 앱 평가 및 URL 연결용
+  url_launcher: ^6.2.2
+  in_app_review: ^2.0.8
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
