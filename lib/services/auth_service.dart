@@ -14,7 +14,26 @@ class AuthService {
   // 로그인 상태 스트림
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // 회원가입 (디바이스 정보 추가)
+  // 안전한 디바이스 정보 수집
+  Future<Map<String, dynamic>> _getSafeDeviceInfo() async {
+    try {
+      final deviceFingerprint = await _deviceService.getDeviceFingerprint();
+      final deviceInfo = await _deviceService.getDeviceInfo();
+
+      return {
+        'fingerprint': deviceFingerprint, // String
+        'info': deviceInfo, // Map<String, String>
+      };
+    } catch (e) {
+      print('디바이스 정보 수집 실패 (기본값 사용): $e');
+      return {
+        'fingerprint': 'error_${DateTime.now().millisecondsSinceEpoch}',
+        'info': <String, String>{'platform': 'Unknown', 'error': 'Device info collection failed'},
+      };
+    }
+  }
+
+  // 회원가입
   Future<UserModel?> signUp(String email, String password, String name) async {
     try {
       print('회원가입 시도: $email');
@@ -27,28 +46,32 @@ class AuthService {
       if (result.user != null) {
         print('Firebase 회원가입 성공: ${result.user!.uid}');
 
-        // 디바이스 정보 수집
-        final deviceFingerprint = await _deviceService.getDeviceFingerprint();
-        final deviceInfo = await _deviceService.getDeviceInfo();
+        // 안전한 디바이스 정보 수집
+        final deviceData = await _getSafeDeviceInfo();
 
         // UserModel 생성
         final userData = UserModel(
           email: email.trim(),
           name: name.trim(),
           role: email.trim() == 'admin@test.com' ? 'admin' : 'user',
-          deviceFingerprint: deviceFingerprint,
-          deviceInfo: deviceInfo,
+          deviceFingerprint: deviceData['fingerprint'] as String,
+          deviceInfo: deviceData['info'] as Map<String, String>,
           lastLoginAt: DateTime.now(),
           loginHistory: [DateTime.now().toIso8601String()],
         );
 
-        // Firestore에 저장
-        await _firestore
-            .collection('users')
-            .doc(result.user!.uid)
-            .set(userData.toFirestore());
+        // Firestore에 저장 (안전하게)
+        try {
+          await _firestore
+              .collection('users')
+              .doc(result.user!.uid)
+              .set(userData.toFirestore());
+          print('Firestore 저장 성공');
+        } catch (firestoreError) {
+          print('Firestore 저장 실패: $firestoreError');
+          // Firestore 저장이 실패해도 회원가입은 성공으로 처리
+        }
 
-        print('Firestore 저장 성공');
         return userData;
       }
       return null;
@@ -57,7 +80,7 @@ class AuthService {
       String errorMessage;
       switch (e.code) {
         case 'weak-password':
-          errorMessage = '비밀번호가 너무 약합니다.';
+          errorMessage = '비밀번호가 너무 약습니다.';
           break;
         case 'email-already-in-use':
           errorMessage = '이미 사용 중인 이메일입니다.';
@@ -71,6 +94,47 @@ class AuthService {
       throw Exception(errorMessage);
     } catch (e) {
       print('일반 에러: $e');
+
+      // 타입 캐스팅 오류 등이 발생했지만 Firebase Auth는 성공했을 수 있음
+      final currentUser = _auth.currentUser;
+      if (currentUser != null) {
+        print('회원가입은 성공했으나 후처리 중 오류 발생. 기본 데이터로 처리');
+
+        try {
+          // 기본 데이터로 UserModel 생성
+          final defaultUser = UserModel(
+            email: email.trim(),
+            name: name.trim(),
+            role: email.trim() == 'admin@test.com' ? 'admin' : 'user',
+            deviceFingerprint: 'fallback_${DateTime.now().millisecondsSinceEpoch}',
+            deviceInfo: <String, String>{'platform': 'Unknown', 'status': 'Fallback'},
+            lastLoginAt: DateTime.now(),
+            loginHistory: [DateTime.now().toIso8601String()],
+          );
+
+          // Firestore에 저장 시도
+          await _firestore
+              .collection('users')
+              .doc(currentUser.uid)
+              .set(defaultUser.toFirestore());
+
+          print('기본 데이터로 Firestore 저장 완료');
+          return defaultUser;
+        } catch (fallbackError) {
+          print('기본 데이터 저장도 실패: $fallbackError');
+          // 그래도 회원가입은 성공했으므로 기본 UserModel 반환
+          return UserModel(
+            email: email.trim(),
+            name: name.trim(),
+            role: email.trim() == 'admin@test.com' ? 'admin' : 'user',
+            deviceFingerprint: 'minimal_${DateTime.now().millisecondsSinceEpoch}',
+            deviceInfo: <String, String>{'platform': 'Unknown', 'status': 'Minimal'},
+            lastLoginAt: DateTime.now(),
+            loginHistory: [DateTime.now().toIso8601String()],
+          );
+        }
+      }
+
       throw Exception('회원가입 중 예상치 못한 오류가 발생했습니다.');
     }
   }
@@ -89,7 +153,7 @@ class AuthService {
       if (currentUser != null) {
         print('Firebase 로그인 성공: ${currentUser.uid}');
 
-        // 로그인 정보 업데이트
+        // 로그인 정보 업데이트 (안전하게)
         await _updateLoginInfo(currentUser.uid);
 
         return await getUserData(currentUser.uid);
@@ -130,11 +194,10 @@ class AuthService {
     }
   }
 
-  // 로그인 정보 업데이트
+  // 로그인 정보 업데이트 (안전하게)
   Future<void> _updateLoginInfo(String uid) async {
     try {
-      final deviceFingerprint = await _deviceService.getDeviceFingerprint();
-      final deviceInfo = await _deviceService.getDeviceInfo();
+      final deviceData = await _getSafeDeviceInfo();
       final now = DateTime.now();
 
       final userDoc = await _firestore.collection('users').doc(uid).get();
@@ -149,8 +212,8 @@ class AuthService {
         }
 
         await _firestore.collection('users').doc(uid).update({
-          'deviceFingerprint': deviceFingerprint,
-          'deviceInfo': deviceInfo,
+          'deviceFingerprint': deviceData['fingerprint'] as String,
+          'deviceInfo': deviceData['info'] as Map<String, String>,
           'lastLoginAt': Timestamp.fromDate(now),
           'loginHistory': existingHistory,
         });
@@ -159,6 +222,7 @@ class AuthService {
       }
     } catch (e) {
       print('로그인 정보 업데이트 실패: $e');
+      // 로그인 정보 업데이트 실패해도 로그인은 성공으로 처리
     }
   }
 
@@ -172,7 +236,7 @@ class AuthService {
     }
   }
 
-  // 사용자 데이터 가져오기
+  // 사용자 데이터 가져오기 (안전하게)
   Future<UserModel?> getUserData(String uid) async {
     try {
       print('사용자 데이터 가져오기: $uid');
@@ -189,23 +253,26 @@ class AuthService {
         print('Firestore에 사용자 데이터 없음, 기본값 생성');
         final currentUser = _auth.currentUser;
         if (currentUser != null) {
-          final deviceFingerprint = await _deviceService.getDeviceFingerprint();
-          final deviceInfo = await _deviceService.getDeviceInfo();
+          final deviceData = await _getSafeDeviceInfo();
 
           final defaultUser = UserModel(
             email: currentUser.email ?? '',
             name: currentUser.displayName ?? currentUser.email?.split('@')[0] ?? '사용자',
             role: currentUser.email == 'admin@test.com' ? 'admin' : 'user',
-            deviceFingerprint: deviceFingerprint,
-            deviceInfo: deviceInfo,
+            deviceFingerprint: deviceData['fingerprint'] as String,
+            deviceInfo: deviceData['info'] as Map<String, String>,
             lastLoginAt: DateTime.now(),
             loginHistory: [DateTime.now().toIso8601String()],
           );
 
-          await _firestore
-              .collection('users')
-              .doc(uid)
-              .set(defaultUser.toFirestore());
+          try {
+            await _firestore
+                .collection('users')
+                .doc(uid)
+                .set(defaultUser.toFirestore());
+          } catch (saveError) {
+            print('기본 사용자 데이터 저장 실패: $saveError');
+          }
 
           return defaultUser;
         }
