@@ -28,7 +28,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _language = '한국어';
 
   // 문의용 정보
-  final String _supportEmail = 'support@pionevents.com';
+  final String _supportEmail = 'eotjddls903@gmail.com';
   final String _adminContact = 'admin@pionevents.com';
   final String _appVersion = '1.0.0';
 
@@ -461,6 +461,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
+                  Divider(height: 1),
+                  // 로그아웃을 권한 밑으로 이동
+                  _buildListTile(
+                    leading: Icons.logout,
+                    title: '로그아웃',
+                    subtitle: '현재 계정에서 로그아웃합니다',
+                    titleColor: Colors.orange,
+                    iconColor: Colors.orange,
+                    onTap: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: Text('로그아웃'),
+                          content: Text('정말로 로그아웃하시겠습니까?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: Text('취소'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: Text('로그아웃', style: TextStyle(color: Colors.orange)),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirmed == true) {
+                        _logout();
+                      }
+                    },
+                  ),
                 ],
               )
             else
@@ -483,7 +515,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
 
-            // 🔔 알림 설정
+            // 🔔 알림 설정 - 주석처리
+            /*
             _buildSection(
               title: '알림 설정',
               icon: Icons.notifications,
@@ -519,8 +552,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
+            */
 
-            // 🎨 앱 설정
+            // 🎨 앱 설정 - 주석처리
+            /*
             _buildSection(
               title: '앱 설정',
               icon: Icons.settings,
@@ -555,6 +590,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
+            */
 
             // 📞 고객 지원
             _buildSection(
@@ -577,23 +613,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   onTap: () => _copyToClipboard(_supportEmail, '문의 이메일'),
                 ),
-                Divider(height: 1),
-                _buildListTile(
-                  leading: Icons.admin_panel_settings,
-                  title: '관리자 문의',
-                  subtitle: _adminContact,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.copy, size: 18),
-                        onPressed: () => _copyToClipboard(_adminContact, '관리자 이메일'),
-                      ),
-                      Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                    ],
-                  ),
-                  onTap: () => _copyToClipboard(_adminContact, '관리자 이메일'),
-                ),
+                // Divider(height: 1),
+                // _buildListTile(
+                //   leading: Icons.admin_panel_settings,
+                //   title: '관리자 문의',
+                //   subtitle: _adminContact,
+                //   trailing: Row(
+                //     mainAxisSize: MainAxisSize.min,
+                //     children: [
+                //       IconButton(
+                //         icon: Icon(Icons.copy, size: 18),
+                //         onPressed: () => _copyToClipboard(_adminContact, '관리자 이메일'),
+                //       ),
+                //       Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                //     ],
+                //   ),
+                //   onTap: () => _copyToClipboard(_adminContact, '관리자 이메일'),
+                // ),
                 Divider(height: 1),
                 _buildListTile(
                   leading: Icons.bug_report,
@@ -601,11 +637,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: '앱 사용 중 문제점을 신고해주세요',
                   onTap: () {
                     _copyToClipboard(_supportEmail, '버그 신고 이메일');
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('이메일 주소가 복사되었습니다. 버그 내용과 함께 보내주세요.')),
-                    );
+                    // ScaffoldMessenger.of(context).showSnackBar(
+                    //   SnackBar(content: Text('이메일 주소가 복사되었습니다. ')),
+                    // );
                   },
                 ),
+                // 앱 평가하기 - 주석처리
+                /*
                 Divider(height: 1),
                 _buildListTile(
                   leading: Icons.star_rate,
@@ -621,6 +659,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   onTap: () => _rateApp(), // 🎯 실제 함수 연결!
                 ),
+                */
               ],
             ),
 
@@ -634,6 +673,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: '피온 이벤트 알림',
                   subtitle: '버전 $_appVersion',
                 ),
+                // 업데이트 확인 - 주석처리
+                /*
                 Divider(height: 1),
                 _buildListTile(
                   leading: Icons.update,
@@ -645,17 +686,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
+                */
                 Divider(height: 1),
                 _buildListTile(
                   leading: Icons.privacy_tip,
                   title: '개인정보 처리방침',
                   subtitle: '개인정보 보호 정책을 확인하세요',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('개인정보 처리방침 페이지는 준비 중입니다')),
-                    );
-                  },
+                  onTap: () => _openWebsite('https://plip.kr/pcc/3e76264e-029f-48f9-8bde-f151fbd16712/privacy/1.html'),
                 ),
+                // 이용약관 - 주석처리
+                /*
                 Divider(height: 1),
                 _buildListTile(
                   leading: Icons.gavel,
@@ -667,46 +707,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
+                */
               ],
             ),
 
-            // 🚪 로그아웃 & 탈퇴 (로그인 사용자만)
+            // 🚪 회원 탈퇴 (로그인 사용자만)
             if (widget.currentUser != null)
               _buildSection(
                 title: '계정 관리',
                 icon: Icons.manage_accounts,
                 children: [
-                  _buildListTile(
-                    leading: Icons.logout,
-                    title: '로그아웃',
-                    subtitle: '현재 계정에서 로그아웃합니다',
-                    titleColor: Colors.orange,
-                    iconColor: Colors.orange,
-                    onTap: () async {
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: Text('로그아웃'),
-                          content: Text('정말로 로그아웃하시겠습니까?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: Text('취소'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: Text('로그아웃', style: TextStyle(color: Colors.orange)),
-                            ),
-                          ],
-                        ),
-                      );
-
-                      if (confirmed == true) {
-                        _logout();
-                      }
-                    },
-                  ),
-                  Divider(height: 1, color: Colors.grey[300]),
                   _buildListTile(
                     leading: Icons.delete_forever,
                     title: '회원 탈퇴',

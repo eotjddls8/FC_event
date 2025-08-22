@@ -322,6 +322,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
   }
 
+  /* 광고 관련 추첨 버튼 및 메서드들 주석처리
   Widget _buildLotteryButton() {
     // 비로그인이거나 관리자는 추첨 참여 불가
     if (widget.currentUser == null) {
@@ -330,21 +331,21 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         width: double.infinity,
         height: 50,
         child: ElevatedButton.icon(
-          onPressed: RewardedAdService.isReady ? _participateInLottery : null,  // 🔥 변경!
-          icon: RewardedAdService.isReady   // 🔥 변경!
+          onPressed: RewardedAdService.isReady ? _participateInLottery : null,
+          icon: RewardedAdService.isReady
               ? Icon(Icons.card_giftcard)
               : SizedBox(
             width: 20,
             height: 20,
             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
           ),
-          label: Text(  // 🔥 변경!
+          label: Text(
             RewardedAdService.isReady
                 ? '🎁 광고 보고 추첨 참여하기'
                 : '광고 로딩 중...',
           ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: RewardedAdService.isReady ? FifaColors.accent : Colors.grey,  // 🔥 변경!
+            backgroundColor: RewardedAdService.isReady ? FifaColors.accent : Colors.grey,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -509,6 +510,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       ),
     );
   }
+  */
 
   @override
   Widget build(BuildContext context) {
@@ -518,7 +520,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           children: [
             Icon(Icons.sports_soccer, color: FifaColors.accent),
             SizedBox(width: 8),
-            Text('FIFA 이벤트'),
+            Text('이벤트 내용',  style: TextStyle(
+              color: Colors.white,      // 빨간색
+
+            ),),
           ],
         ),
         backgroundColor: FifaColors.primary,
@@ -608,10 +613,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             // 좋아요 버튼
             _buildLikeButton(),
 
+            /* 추첨 버튼 주석처리
             SizedBox(height: 16),
 
             // 추첨 버튼
             _buildLotteryButton(),
+            */
 
             SizedBox(height: 16),
 

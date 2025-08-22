@@ -102,7 +102,11 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             Icon(Icons.sports_soccer, color: FifaColors.accent),
             SizedBox(width: 8),
-            Text('FIFA 로그인'),
+            Text('로그인',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,  // 👈 이 줄 추가!
+              ),),
           ],
         ),
         backgroundColor: FifaColors.primary,
@@ -144,7 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
               SizedBox(height: 20),
 
               Text(
-                'FIFA 이벤트 알림',
+                'FC 이벤트 알림',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -153,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               SizedBox(height: 8),
               Text(
-                '최신 FIFA 이벤트 소식을 받아보세요!',
+                '최신 이벤트 소식을 받아보세요!',
                 style: TextStyle(
                   fontSize: 16,
                   color: FifaColors.textSecondary,
@@ -239,10 +243,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
-                      : Icon(Icons.login),
+                      : Icon(Icons.login, color: Colors.white),
                   label: Text(
                     _isLoading ? '로그인 중...' : 'FIFA 로그인',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,color: Colors.white,),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: FifaColors.primary,
@@ -283,57 +287,57 @@ class _LoginScreenState extends State<LoginScreen> {
               SizedBox(height: 32),
 
               // 구분선
-              Row(
-                children: [
-                  Expanded(child: Divider()),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      '또는',
-                      style: TextStyle(color: FifaColors.textSecondary),
-                    ),
-                  ),
-                  Expanded(child: Divider()),
-                ],
-              ),
-
-              SizedBox(height: 16),
-              Text(
-                '테스트 계정으로 빠른 로그인',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: FifaColors.textPrimary,
-                ),
-              ),
-              SizedBox(height: 12),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _setTestAccount('admin@test.com', '123456'),
-                      icon: Icon(Icons.admin_panel_settings, size: 16),
-                      label: Text('관리자'),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        side: BorderSide(color: FifaColors.primary),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _setTestAccount('user@test.com', '123456'),
-                      icon: Icon(Icons.person, size: 16),
-                      label: Text('일반 사용자'),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        side: BorderSide(color: FifaColors.primary),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              // Row(
+              //   children: [
+              //     Expanded(child: Divider()),
+              //     Padding(
+              //       padding: EdgeInsets.symmetric(horizontal: 16),
+              //       child: Text(
+              //         '또는',
+              //         style: TextStyle(color: FifaColors.textSecondary),
+              //       ),
+              //     ),
+              //     Expanded(child: Divider()),
+              //   ],
+              // ),
+              //
+              // SizedBox(height: 16),
+              // Text(
+              //   '테스트 계정으로 빠른 로그인',
+              //   style: TextStyle(
+              //     fontWeight: FontWeight.bold,
+              //     color: FifaColors.textPrimary,
+              //   ),
+              // ),
+              // SizedBox(height: 12),
+              //
+              // Row(
+              //   children: [
+              //     Expanded(
+              //       child: OutlinedButton.icon(
+              //         onPressed: () => _setTestAccount('admin@test.com', '123456'),
+              //         icon: Icon(Icons.admin_panel_settings, size: 16),
+              //         label: Text('관리자'),
+              //         style: OutlinedButton.styleFrom(
+              //           padding: EdgeInsets.symmetric(vertical: 8),
+              //           side: BorderSide(color: FifaColors.primary),
+              //         ),
+              //       ),
+              //     ),
+              //     SizedBox(width: 8),
+              //     Expanded(
+              //       child: OutlinedButton.icon(
+              //         onPressed: () => _setTestAccount('user@test.com', '123456'),
+              //         icon: Icon(Icons.person, size: 16),
+              //         label: Text('일반 사용자'),
+              //         style: OutlinedButton.styleFrom(
+              //           padding: EdgeInsets.symmetric(vertical: 8),
+              //           side: BorderSide(color: FifaColors.primary),
+              //         ),
+              //       ),
+              //     ),
+              //   ],
+              // ),
             ],
           ),
         ),

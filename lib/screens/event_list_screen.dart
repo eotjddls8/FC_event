@@ -115,7 +115,7 @@ class _EventListScreenState extends State<EventListScreen> {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: Text(
-          'FIFA 이벤트',
+          'FC 이벤트',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,

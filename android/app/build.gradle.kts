@@ -1,58 +1,69 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
-    // Google services 플러그인 추가
     id("com.google.gms.google-services")
+}
 
-
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("key.properties")
+    if (f.exists()) {
+        load(FileInputStream(f))
+    }
 }
 
 android {
-    namespace = "com.example.fc_event"
+    namespace = "com.jonglee.pionevent"
     compileSdk = 35
-    ndkVersion = "27.0.12077973"
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.fc_event"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        applicationId = "com.jonglee.pionevent"
         minSdk = 23
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
     }
 
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = "17" }
+
+    // ✅ 항상 'release' 서명 구성을 "생성"한다
+    signingConfigs {
+        create("release") {
+            // key.properties 가 있을 때만 값 채우기
+            val storePath = keystoreProps.getProperty("storeFile")
+            if (!storePath.isNullOrBlank()) {
+                // 루트 기준 경로로 해석
+                storeFile = rootProject.file(storePath)
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+        getByName("release") {
+            // ✅ KTS 문법: '=' 로 할당
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
 
-flutter {
-    source = "../.."
-}
+flutter { source = "../.." }
 
-
-// Firebase dependencies 추가
 dependencies {
-    // Firebase BoM 추가
     implementation(platform("com.google.firebase:firebase-bom:34.0.0"))
-
-    // Firebase Analytics
     implementation("com.google.firebase:firebase-analytics")
 }
