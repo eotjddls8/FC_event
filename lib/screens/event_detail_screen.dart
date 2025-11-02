@@ -234,9 +234,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
           _buildInfoRow(Icons.play_arrow, '시작일', _formatDate(widget.event.startDate)),
           _buildInfoRow(Icons.stop, '종료일', _formatDate(widget.event.endDate)),
-          _buildInfoRow(Icons.person, '작성자', widget.event.author),
-          _buildInfoRow(Icons.access_time, '등록일',
-              '${_formatDate(widget.event.createdAt)} ${_formatTime(widget.event.createdAt)}'),
+          //_buildInfoRow(Icons.person, '작성자', widget.event.author),
+          //_buildInfoRow(Icons.access_time, '등록일',
+          //    '${_formatDate(widget.event.createdAt)} ${_formatTime(widget.event.createdAt)}'),
         ],
       ),
     );
@@ -564,11 +564,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
             SizedBox(height: 16),
 
-            // 이벤트 정보
-            _buildEventInfo(),
-
-            SizedBox(height: 24),
-
             // 내용
             Container(
               width: double.infinity,
@@ -607,6 +602,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 ],
               ),
             ),
+
+            SizedBox(height: 24),
+
+
+            // 이벤트 정보
+            _buildEventInfo(),
+
+
 
             SizedBox(height: 24),
 

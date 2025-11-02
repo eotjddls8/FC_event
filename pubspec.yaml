@@ -5,22 +5,27 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=2.19.0 <4.0.0'
+  sdk: '>=3.0.0 <4.0.0'  # Flutter SDK 버전도 업데이트
 
 dependencies:
   flutter:
     sdk: flutter
 
-  # Firebase
-  firebase_core: ^2.24.2
-  firebase_auth: ^4.15.3
-  cloud_firestore: ^4.13.6
+  # Firebase (최신 버전으로 업데이트)
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.3
+  firebase_storage: ^12.3.2  # ← 이것 추가 (상품 이미지 업로드용)
+
 
   # UI & UX
-  cupertino_icons: ^1.0.2
+  cupertino_icons: ^1.0.6
 
-  # Google Ads
-  google_mobile_ads: ^4.0.0
+  # Google Ads (최신 버전)
+  google_mobile_ads: ^5.1.0
+
+  # 이미지 선택 (상품 등록용)
+  image_picker: ^1.0.7  # ← 이것 추가
 
   # 한국어 지원
   flutter_localizations:
@@ -28,20 +33,20 @@ dependencies:
   intl: any
 
   # 디바이스 정보 (자동 로그인 + 중복 방지용)
-  device_info_plus: ^9.1.0
-  crypto: ^3.0.3
+  device_info_plus: ^10.1.2
+  crypto: ^3.0.5
 
   # 광고 빈도 관리용
-  shared_preferences: ^2.2.2
+  shared_preferences: ^2.3.2
 
   # 🎯 앱 평가 및 URL 연결용
-  url_launcher: ^6.2.2
-  in_app_review: ^2.0.8
+  url_launcher: ^6.3.1
+  in_app_review: ^2.0.9
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^4.0.0
   # 🎯 Native Splash 추가 (여기에!)
   flutter_native_splash: ^2.4.1
   flutter_launcher_icons: ^0.13.1
@@ -71,6 +76,7 @@ flutter_icons:
   ios: true
   image_path: "assets/app_icon.png"
   adaptive_icon_background: "#FFFFFF"
+  remove_alpha_ios: true  # iOS 투명도 제거
   #adaptive_icon_foreground: "assets/app_icon_foreground.png"
 
 flutter:

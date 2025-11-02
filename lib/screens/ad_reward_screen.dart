@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';  // 새로 추가
 import '../models/user_model.dart';
 import '../services/rewarded_ad_service.dart';
 import '../services/auth_service.dart';
 import '../theme/fifa_theme.dart';
 import 'login_screen.dart';
+import '../services/prize_service.dart';  // 새로 추가
+import '../models/prize_model.dart';      // 새로 추가
+import 'prize_list_screen.dart';  // ← 이 줄 추가
+import 'admin_prize_management_screen.dart';  // ← 이 줄 추가
+
+
 
 class AdRewardScreen extends StatefulWidget {
   final UserModel? currentUser;
@@ -55,6 +62,13 @@ class _AdRewardScreenState extends State<AdRewardScreen> {
     bool rewardEarned = await RewardedAdService.showRewardedAd();
 
     if (rewardEarned) {
+      // 광고 시청 이력 추가 (수정된 부분)
+      await PrizeService.addAdViewHistory(
+        userId: FirebaseAuth.instance.currentUser!.uid,  // uid 수정
+        adType: 'reward',
+        pointsEarned: 10,
+      );
+
       setState(() {
         _userPoints += 10;
         _todayAdsWatched++;
@@ -165,6 +179,13 @@ class _AdRewardScreenState extends State<AdRewardScreen> {
               onSelected: (value) {
                 if (value == 'logout') {
                   _logout(context);
+                } else if (value == 'admin_prizes') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AdminPrizeManagementScreen(currentUser: widget.currentUser!),
+                    ),
+                  );
                 }
               },
               itemBuilder: (context) => [
@@ -178,6 +199,19 @@ class _AdRewardScreenState extends State<AdRewardScreen> {
                     ],
                   ),
                 ),
+                // 관리자 전용 메뉴 추가
+                if (widget.currentUser!.isAdmin) ...[
+                  PopupMenuItem(
+                    value: 'admin_prizes',
+                    child: Row(
+                      children: [
+                        Icon(Icons.settings, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Text('상품 관리'),
+                      ],
+                    ),
+                  ),
+                ],
                 PopupMenuItem(
                   value: 'logout',
                   child: Row(
@@ -293,6 +327,7 @@ class _AdRewardScreenState extends State<AdRewardScreen> {
               SizedBox(height: 24),
             ],
 
+            // 일반 광고 시청 카드
             Container(
               width: double.infinity,
               padding: EdgeInsets.all(20),
@@ -355,6 +390,87 @@ class _AdRewardScreenState extends State<AdRewardScreen> {
               ),
             ),
 
+            SizedBox(height: 24),
+
+            // 상품 추첨 카드 (새로 추가)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [FifaColors.primary, FifaColors.primary.withOpacity(0.8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: FifaColors.primary.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.star, color: Colors.yellow, size: 32),
+                      SizedBox(width: 8),
+                      Text(
+                        '🎁 상품 추첨',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    '광고를 시청하고 다양한 상품에 응모하세요!\n🥉 Bronze부터 💎 Diamond까지 다양한 상품이 기다려요',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PrizeListScreen(currentUser: widget.currentUser),
+                          ),
+                        );
+                      },
+                      icon: Icon(Icons.card_giftcard, color: FifaColors.primary),
+                      label: Text(
+                        '상품 보러가기',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: FifaColors.primary,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
             if (widget.currentUser == null) ...[
               SizedBox(height: 24),
               Container(
@@ -400,6 +516,58 @@ class _AdRewardScreenState extends State<AdRewardScreen> {
                   ],
                 ),
               ),
+            ],
+
+            // 상품 티어 안내 (새로 추가)
+            if (widget.currentUser != null) ...[
+              SizedBox(height: 24),
+              Text(
+                '🎯 상품 티어 안내',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: FifaColors.textPrimary,
+                ),
+              ),
+              SizedBox(height: 12),
+              ...PrizeTier.values.map((tier) {
+                return Container(
+                  margin: EdgeInsets.only(bottom: 8),
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(tier.emoji, style: TextStyle(fontSize: 20)),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              tier.name.toUpperCase(),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              '광고 ${tier.requiredAdViews}회 시청 • ${tier.valueDisplay}',
+                              style: TextStyle(
+                                color: FifaColors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
             ],
           ],
         ),

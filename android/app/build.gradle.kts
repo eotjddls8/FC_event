@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.jonglee.pionevent"
-        minSdk = 23
+        minSdk = flutter.minSdkVersion  // 이렇게 수정
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
