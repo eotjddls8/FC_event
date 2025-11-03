@@ -100,39 +100,30 @@ class AuthService {
       if (currentUser != null) {
         print('회원가입은 성공했으나 후처리 중 오류 발생. 기본 데이터로 처리');
 
-        try {
-          // 기본 데이터로 UserModel 생성
-          final defaultUser = UserModel(
-            email: email.trim(),
-            name: name.trim(),
-            role: email.trim() == 'admin@test.com' ? 'admin' : 'user',
-            deviceFingerprint: 'fallback_${DateTime.now().millisecondsSinceEpoch}',
-            deviceInfo: <String, String>{'platform': 'Unknown', 'status': 'Fallback'},
-            lastLoginAt: DateTime.now(),
-            loginHistory: [DateTime.now().toIso8601String()],
-          );
+        // 기본 데이터로 UserModel 생성
+        final defaultUser = UserModel(
+          email: email.trim(),
+          name: name.trim(),
+          role: email.trim() == 'admin@test.com' ? 'admin' : 'user',
+          deviceFingerprint: 'fallback_${DateTime.now().millisecondsSinceEpoch}',
+          deviceInfo: <String, String>{'platform': 'Unknown', 'status': 'Fallback'},
+          lastLoginAt: DateTime.now(),
+          loginHistory: [DateTime.now().toIso8601String()],
+        );
 
-          // Firestore에 저장 시도
+        // Firestore 저장 시도 (실패해도 무시)
+        try {
           await _firestore
               .collection('users')
               .doc(currentUser.uid)
               .set(defaultUser.toFirestore());
-
           print('기본 데이터로 Firestore 저장 완료');
-          return defaultUser;
         } catch (fallbackError) {
-          print('기본 데이터 저장도 실패: $fallbackError');
-          // 그래도 회원가입은 성공했으므로 기본 UserModel 반환
-          return UserModel(
-            email: email.trim(),
-            name: name.trim(),
-            role: email.trim() == 'admin@test.com' ? 'admin' : 'user',
-            deviceFingerprint: 'minimal_${DateTime.now().millisecondsSinceEpoch}',
-            deviceInfo: <String, String>{'platform': 'Unknown', 'status': 'Minimal'},
-            lastLoginAt: DateTime.now(),
-            loginHistory: [DateTime.now().toIso8601String()],
-          );
+          print('기본 데이터 저장 실패 (무시하고 회원가입 성공 처리): $fallbackError');
         }
+
+        // ⭐ 핵심: Firestore 저장 실패해도 무조건 UserModel 반환
+        return defaultUser;
       }
 
       throw Exception('회원가입 중 예상치 못한 오류가 발생했습니다.');
