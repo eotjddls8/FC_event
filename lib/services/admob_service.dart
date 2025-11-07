@@ -5,7 +5,7 @@ class AdMobService {
   // 배너 광고 ID
   static String get bannerAdUnitId {
     if (Platform.isAndroid) {
-      return 'ca-app-pub-3940256099942544/6300978111'; // 테스트 ID (안드로이드용 실제 ID로 나중에 교체)
+      return 'ca-app-pub-5878607330599253/9240295885';
     } else if (Platform.isIOS) {
       return 'ca-app-pub-5878607330599253/5755307752'; // 🎯 실제 iOS 배너 ID
     } else {
@@ -16,7 +16,7 @@ class AdMobService {
   // 전면 광고 ID
   static String get interstitialAdUnitId {
     if (Platform.isAndroid) {
-      return 'ca-app-pub-3940256099942544/1033173712'; // 테스트 ID (안드로이드용 실제 ID로 나중에 교체)
+      return 'ca-app-pub-5878607330599253/1256373395';
     } else if (Platform.isIOS) {
       return 'ca-app-pub-5878607330599253/4350742659'; // 🎯 실제 iOS 전면 ID
     } else {
@@ -27,7 +27,7 @@ class AdMobService {
   // 보상형 동영상 광고 ID (이벤트 추첨권용)
   static String get rewardedAdUnitId {
     if (Platform.isAndroid) {
-      return 'ca-app-pub-3940256099942544/5224354917'; // 테스트 ID (안드로이드용 실제 ID로 나중에 교체)
+      return 'ca-app-pub-5878607330599253/6030295720';
     } else if (Platform.isIOS) {
       return 'ca-app-pub-5878607330599253/1724579310'; // 🎯 실제 iOS 보상형 ID
     } else {
@@ -38,9 +38,9 @@ class AdMobService {
   // 네이티브 광고 ID
   static String get nativeAdUnitId {
     if (Platform.isAndroid) {
-      return 'ca-app-pub-3940256099942544/2247696110'; // 테스트 ID (안드로이드용 실제 ID로 나중에 교체)
+      return 'ca-app-pub-5878607330599253/5546972192';
     } else if (Platform.isIOS) {
-      return 'ca-app-pub-3940256099942544/3986624511'; // 테스트 ID (iOS 네이티브는 제공받지 않아서 테스트 ID 유지)
+      return 'ca-app-pub-3940256099942544/3986624511';
     } else {
       throw UnsupportedError('Unsupported platform');
     }
