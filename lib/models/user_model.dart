@@ -8,6 +8,7 @@ class UserModel {
   final Map<String, String>? deviceInfo; // 📱 디바이스 정보
   final DateTime? lastLoginAt; // 🕐 마지막 로그인 시간
   final List<String>? loginHistory; // 📊 로그인 기록 (최근 5개)
+  final bool isEmailVerified;
 
   // ========== 새로 추가된 코인 시스템 필드들 ==========
   final int coins;         // 💰 사용자 보유 코인
@@ -26,6 +27,7 @@ class UserModel {
     this.coins = 0,              // 기본값 0
     this.dailyAdCount = 0,       // 기본값 0
     this.lastAdDate = '',        // 기본값 빈 문자열
+    this.isEmailVerified = false,
   });
 
   bool get isAdmin => role == 'admin';
@@ -56,6 +58,7 @@ class UserModel {
       coins: data['coins'] ?? 0,
       dailyAdCount: data['dailyAdCount'] ?? 0,
       lastAdDate: data['lastAdDate'] ?? '',
+      isEmailVerified: data['emailVerified'] ?? false,
     );
   }
 
@@ -72,6 +75,7 @@ class UserModel {
       'coins': coins,
       'dailyAdCount': dailyAdCount,
       'lastAdDate': lastAdDate,
+      'emailVerified': isEmailVerified,
     };
   }
 

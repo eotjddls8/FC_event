@@ -1,12 +1,12 @@
+// lib/screens/login_screen.dart - 이메일 인증 버전
+
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 import '../theme/fifa_theme.dart';
 import 'event_list_screen.dart';
-import 'signup_screen.dart'; // 추가
-import 'main_navigation_screen.dart'; // 🎯 이 줄 추가!
-
-
+import 'signup_screen.dart';
+import 'main_navigation_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -36,48 +36,46 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // signIn 메서드에서 UserModel을 반환받음
-      final user = await _authService.signIn(
+      // 🔥 변경: Map<String, dynamic> 반환값 처리
+      final result = await _authService.signIn(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
 
-      print('로그인 결과: $user'); // 디버그
+      print('로그인 결과: $result');
 
-      // 로그인 성공 시 화면 전환
-      if (user != null && mounted) {
-        print('화면 전환 시도'); // 디버그
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => MainNavigationScreen(currentUser: user),
-          ),
-        );
-      } else {
-        print('사용자 정보 없음'); // 디버그
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('로그인에 실패했습니다. 다시 시도해주세요.')),
+      if (result['success'] == true && mounted) {
+        // 로그인 성공
+        final UserModel? user = result['user'];
+        if (user != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MainNavigationScreen(currentUser: user),
+            ),
           );
         }
+      } else if (result['needsVerification'] == true && mounted) {
+        // 🔥 이메일 미인증 사용자 처리
+        _showEmailVerificationDialog();
+      } else if (mounted) {
+        // 기타 로그인 실패
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? '로그인에 실패했습니다'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
 
     } catch (e) {
       print('로그인 에러: $e');
       if (mounted) {
-        String errorMessage = '로그인 실패';
-        if (e.toString().contains('user-not-found')) {
-          errorMessage = '등록되지 않은 이메일입니다';
-        } else if (e.toString().contains('wrong-password')) {
-          errorMessage = '비밀번호가 틀렸습니다';
-        } else if (e.toString().contains('invalid-email')) {
-          errorMessage = '올바르지 않은 이메일 형식입니다';
-        } else if (e.toString().contains('too-many-requests')) {
-          errorMessage = '너무 많은 시도입니다. 잠시 후 다시 시도해주세요';
-        }
-
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
+          SnackBar(
+            content: Text('로그인 중 오류가 발생했습니다'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -89,9 +87,208 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _setTestAccount(String email, String password) {
-    _emailController.text = email;
-    _passwordController.text = password;
+  // 🔥 이메일 인증 안내 다이얼로그
+  void _showEmailVerificationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.mark_email_unread, color: Colors.orange, size: 28),
+            SizedBox(width: 10),
+            Text('이메일 인증 필요'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '아직 이메일 인증이 완료되지 않았습니다.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.email, color: Colors.blue[700], size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _emailController.text.trim(),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[700],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '위 메일함을 확인해주세요',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              '• 인증 링크를 클릭하셨나요?',
+              style: TextStyle(fontSize: 14),
+            ),
+            SizedBox(height: 4),
+            Text(
+              '• 스팸함도 확인해보세요',
+              style: TextStyle(fontSize: 14),
+            ),
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.amber[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.amber[700], size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '인증 완료 후 다시 로그인해주세요',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.amber[800],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          // 🔥 인증 메일 재발송 버튼
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              _resendVerificationEmail();
+            },
+            child: Text(
+              '인증 메일 재발송',
+              style: TextStyle(color: Colors.blue[700]),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🔥 인증 메일 재발송 기능
+  Future<void> _resendVerificationEmail() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final result = await _authService.resendVerificationEmail(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
+
+      if (mounted) {
+        if (result['success'] == true) {
+          // 재발송 성공
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.send, color: Colors.green, size: 28),
+                  SizedBox(width: 10),
+                  Text('재발송 완료'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.mark_email_read, color: Colors.green, size: 48),
+                  SizedBox(height: 16),
+                  Text(
+                    '인증 이메일을 다시 발송했습니다',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    _emailController.text.trim(),
+                    style: TextStyle(
+                      color: Colors.blue[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    '메일함을 확인해주세요',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('확인'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          // 재발송 실패
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? '재발송 실패'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('재발송 에러: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('인증 메일 재발송 중 오류가 발생했습니다'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -102,11 +299,13 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             Icon(Icons.sports_soccer, color: FifaColors.accent),
             SizedBox(width: 8),
-            Text('로그인',
+            Text(
+              '로그인',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.white,  // 👈 이 줄 추가!
-              ),),
+                color: Colors.white,
+              ),
+            ),
           ],
         ),
         backgroundColor: FifaColors.primary,
@@ -171,6 +370,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _emailController,
                 decoration: InputDecoration(
                   labelText: '이메일',
+                  helperText: '인증된 이메일로 로그인하세요', // 🔥 추가
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -246,7 +446,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       : Icon(Icons.login, color: Colors.white),
                   label: Text(
                     _isLoading ? '로그인 중...' : 'FIFA 로그인',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,color: Colors.white,),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: FifaColors.primary,
@@ -259,7 +463,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               SizedBox(height: 24),
 
-              // 회원가입 버튼 추가
+              // 회원가입 버튼
               Container(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -272,7 +476,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   icon: Icon(Icons.person_add, color: FifaColors.secondary),
                   label: Text(
                     '새 계정 만들기',
-                    style: TextStyle(color: FifaColors.secondary, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: FifaColors.secondary,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   style: OutlinedButton.styleFrom(
                     padding: EdgeInsets.symmetric(vertical: 12),
@@ -286,58 +493,29 @@ class _LoginScreenState extends State<LoginScreen> {
 
               SizedBox(height: 32),
 
-              // 구분선
-              // Row(
-              //   children: [
-              //     Expanded(child: Divider()),
-              //     Padding(
-              //       padding: EdgeInsets.symmetric(horizontal: 16),
-              //       child: Text(
-              //         '또는',
-              //         style: TextStyle(color: FifaColors.textSecondary),
-              //       ),
-              //     ),
-              //     Expanded(child: Divider()),
-              //   ],
-              // ),
-              //
-              // SizedBox(height: 16),
-              // Text(
-              //   '테스트 계정으로 빠른 로그인',
-              //   style: TextStyle(
-              //     fontWeight: FontWeight.bold,
-              //     color: FifaColors.textPrimary,
-              //   ),
-              // ),
-              // SizedBox(height: 12),
-              //
-              // Row(
-              //   children: [
-              //     Expanded(
-              //       child: OutlinedButton.icon(
-              //         onPressed: () => _setTestAccount('admin@test.com', '123456'),
-              //         icon: Icon(Icons.admin_panel_settings, size: 16),
-              //         label: Text('관리자'),
-              //         style: OutlinedButton.styleFrom(
-              //           padding: EdgeInsets.symmetric(vertical: 8),
-              //           side: BorderSide(color: FifaColors.primary),
-              //         ),
-              //       ),
-              //     ),
-              //     SizedBox(width: 8),
-              //     Expanded(
-              //       child: OutlinedButton.icon(
-              //         onPressed: () => _setTestAccount('user@test.com', '123456'),
-              //         icon: Icon(Icons.person, size: 16),
-              //         label: Text('일반 사용자'),
-              //         style: OutlinedButton.styleFrom(
-              //           padding: EdgeInsets.symmetric(vertical: 8),
-              //           side: BorderSide(color: FifaColors.primary),
-              //         ),
-              //       ),
-              //     ),
-              //   ],
-              // ),
+              // 🔥 이메일 인증 안내
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.grey[600], size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '회원가입 후 이메일 인증이 필요합니다',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

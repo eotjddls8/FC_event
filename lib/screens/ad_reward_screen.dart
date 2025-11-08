@@ -11,6 +11,7 @@ import '../services/prize_service.dart';
 import '../models/prize_model.dart';
 import 'prize_list_screen.dart';
 import 'admin_prize_management_screen.dart';
+import '../services/admob_service.dart';
 
 class AdRewardScreen extends StatefulWidget {
   final UserModel? currentUser;
@@ -47,7 +48,7 @@ class _AdRewardScreenState extends State<AdRewardScreen> {
 
   Future<void> _initializeAds() async {
     try {
-      await MobileAds.instance.initialize();
+      await AdMobService.initialize();
       await _loadRewardedAd();
       print('✅ 광고 시스템 초기화 완료');
     } catch (e) {
@@ -62,7 +63,7 @@ class _AdRewardScreenState extends State<AdRewardScreen> {
       _isAdLoaded = false;
 
       await RewardedAd.load(
-        adUnitId: 'ca-app-pub-3940256099942544/5224354917', // 테스트 광고 ID
+        adUnitId: AdMobService.rewardedAdUnitId, // 테스트 광고 ID
         request: const AdRequest(),
         rewardedAdLoadCallback: RewardedAdLoadCallback(
           onAdLoaded: (RewardedAd ad) {

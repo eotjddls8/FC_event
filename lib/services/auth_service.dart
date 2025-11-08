@@ -1,3 +1,5 @@
+// lib/services/auth_service.dart - 이메일 인증 추가 버전
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
@@ -14,15 +16,15 @@ class AuthService {
   // 로그인 상태 스트림
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // 안전한 디바이스 정보 수집
+  // 안전한 디바이스 정보 수집 (기존 코드 유지)
   Future<Map<String, dynamic>> _getSafeDeviceInfo() async {
     try {
       final deviceFingerprint = await _deviceService.getDeviceFingerprint();
       final deviceInfo = await _deviceService.getDeviceInfo();
 
       return {
-        'fingerprint': deviceFingerprint, // String
-        'info': deviceInfo, // Map<String, String>
+        'fingerprint': deviceFingerprint,
+        'info': deviceInfo,
       };
     } catch (e) {
       print('디바이스 정보 수집 실패 (기본값 사용): $e');
@@ -33,11 +35,12 @@ class AuthService {
     }
   }
 
-  // 회원가입
-  Future<UserModel?> signUp(String email, String password, String name) async {
+  // 🔥 회원가입 (이메일 인증 추가)
+  Future<Map<String, dynamic>> signUp(String email, String password, String name) async {
     try {
       print('회원가입 시도: $email');
 
+      // 1. Firebase 계정 생성
       UserCredential result = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password.trim(),
@@ -46,41 +49,58 @@ class AuthService {
       if (result.user != null) {
         print('Firebase 회원가입 성공: ${result.user!.uid}');
 
-        // 안전한 디바이스 정보 수집
+        // 2. 사용자 이름 설정
+        await result.user!.updateDisplayName(name.trim());
+
+        // 3. 🔥 이메일 인증 메일 발송
+        await result.user!.sendEmailVerification();
+        print('인증 이메일 발송 완료');
+
+        // 4. 디바이스 정보 수집
         final deviceData = await _getSafeDeviceInfo();
 
-        // UserModel 생성
-        final userData = UserModel(
-          email: email.trim(),
-          name: name.trim(),
-          role: email.trim() == 'admin@test.com' ? 'admin' : 'user',
-          deviceFingerprint: deviceData['fingerprint'] as String,
-          deviceInfo: deviceData['info'] as Map<String, String>,
-          lastLoginAt: DateTime.now(),
-          loginHistory: [DateTime.now().toIso8601String()],
-        );
+        // 5. Firestore에 사용자 정보 저장
+        final userData = {
+          'email': email.trim(),
+          'name': name.trim(),
+          'role': email.trim() == 'admin@test.com' ? 'admin' : 'user',
+          'emailVerified': false,  // 🔥 이메일 미인증 상태
+          'deviceFingerprint': deviceData['fingerprint'],
+          'deviceInfo': deviceData['info'],
+          'lastLoginAt': Timestamp.now(),
+          'loginHistory': [DateTime.now().toIso8601String()],
+          'coins': 0,
+          'dailyAdCount': 0,
+          'lastAdDate': '',
+          'createdAt': Timestamp.now(),
+        };
 
-        // Firestore에 저장 (안전하게)
-        try {
-          await _firestore
-              .collection('users')
-              .doc(result.user!.uid)
-              .set(userData.toFirestore());
-          print('Firestore 저장 성공');
-        } catch (firestoreError) {
-          print('Firestore 저장 실패: $firestoreError');
-          // Firestore 저장이 실패해도 회원가입은 성공으로 처리
-        }
+        await _firestore
+            .collection('users')
+            .doc(result.user!.uid)
+            .set(userData);
 
-        return userData;
+        // 6. 🔥 로그아웃 (인증 완료 후 로그인하도록)
+        await _auth.signOut();
+
+        return {
+          'success': true,
+          'message': '인증 이메일을 발송했습니다. 메일함을 확인해주세요!',
+          'needsVerification': true,
+        };
       }
-      return null;
+
+      return {
+        'success': false,
+        'message': '회원가입 실패',
+      };
+
     } on FirebaseAuthException catch (e) {
       print('Firebase Auth 에러: ${e.code} - ${e.message}');
       String errorMessage;
       switch (e.code) {
         case 'weak-password':
-          errorMessage = '비밀번호가 너무 약습니다.';
+          errorMessage = '비밀번호가 너무 약습니다. (최소 6자 이상)';
           break;
         case 'email-already-in-use':
           errorMessage = '이미 사용 중인 이메일입니다.';
@@ -91,65 +111,72 @@ class AuthService {
         default:
           errorMessage = '회원가입 중 오류가 발생했습니다: ${e.message}';
       }
-      throw Exception(errorMessage);
+
+      return {
+        'success': false,
+        'message': errorMessage,
+      };
+
     } catch (e) {
       print('일반 에러: $e');
-
-      // 타입 캐스팅 오류 등이 발생했지만 Firebase Auth는 성공했을 수 있음
-      final currentUser = _auth.currentUser;
-      if (currentUser != null) {
-        print('회원가입은 성공했으나 후처리 중 오류 발생. 기본 데이터로 처리');
-
-        // 기본 데이터로 UserModel 생성
-        final defaultUser = UserModel(
-          email: email.trim(),
-          name: name.trim(),
-          role: email.trim() == 'admin@test.com' ? 'admin' : 'user',
-          deviceFingerprint: 'fallback_${DateTime.now().millisecondsSinceEpoch}',
-          deviceInfo: <String, String>{'platform': 'Unknown', 'status': 'Fallback'},
-          lastLoginAt: DateTime.now(),
-          loginHistory: [DateTime.now().toIso8601String()],
-        );
-
-        // Firestore 저장 시도 (실패해도 무시)
-        try {
-          await _firestore
-              .collection('users')
-              .doc(currentUser.uid)
-              .set(defaultUser.toFirestore());
-          print('기본 데이터로 Firestore 저장 완료');
-        } catch (fallbackError) {
-          print('기본 데이터 저장 실패 (무시하고 회원가입 성공 처리): $fallbackError');
-        }
-
-        // ⭐ 핵심: Firestore 저장 실패해도 무조건 UserModel 반환
-        return defaultUser;
-      }
-
-      throw Exception('회원가입 중 예상치 못한 오류가 발생했습니다.');
+      return {
+        'success': false,
+        'message': '회원가입 중 예상치 못한 오류가 발생했습니다.',
+      };
     }
   }
 
-  // 로그인
-  Future<UserModel?> signIn(String email, String password) async {
+  // 🔥 로그인 (이메일 인증 확인 추가)
+  Future<Map<String, dynamic>> signIn(String email, String password) async {
     try {
       print('로그인 시도: $email');
 
-      await _auth.signInWithEmailAndPassword(
+      // 1. 로그인 시도
+      UserCredential result = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password.trim(),
       );
 
-      final currentUser = _auth.currentUser;
-      if (currentUser != null) {
-        print('Firebase 로그인 성공: ${currentUser.uid}');
+      if (result.user != null) {
+        print('Firebase 로그인 성공: ${result.user!.uid}');
 
-        // 로그인 정보 업데이트 (안전하게)
-        await _updateLoginInfo(currentUser.uid);
+        // 2. 🔥 이메일 인증 상태 새로고침
+        await result.user!.reload();
+        User? refreshedUser = _auth.currentUser;
 
-        return await getUserData(currentUser.uid);
+        // 3. 🔥 이메일 인증 확인
+        if (refreshedUser != null && refreshedUser.emailVerified) {
+          // 인증 완료된 사용자
+
+          // 로그인 정보 업데이트
+          await _updateLoginInfo(refreshedUser.uid);
+
+          // Firestore에서 사용자 데이터 가져오기
+          UserModel? userData = await getUserData(refreshedUser.uid);
+
+          return {
+            'success': true,
+            'message': '로그인 성공!',
+            'user': userData,
+          };
+
+        } else {
+          // 🔥 이메일 미인증 사용자는 로그아웃 처리
+          await _auth.signOut();
+
+          return {
+            'success': false,
+            'message': '이메일 인증이 필요합니다. 메일함을 확인해주세요.',
+            'needsVerification': true,
+          };
+        }
       }
-      return null;
+
+      return {
+        'success': false,
+        'message': '로그인 실패',
+      };
+
     } on FirebaseAuthException catch (e) {
       print('Firebase Auth 에러: ${e.code} - ${e.message}');
       String errorMessage;
@@ -169,23 +196,56 @@ class AuthService {
         default:
           errorMessage = '로그인 중 오류가 발생했습니다: ${e.message}';
       }
-      throw Exception(errorMessage);
+
+      return {
+        'success': false,
+        'message': errorMessage,
+      };
+
     } catch (e) {
       print('일반 에러: $e');
-      if (e.toString().contains('PigeonUserDetails')) {
-        print('타입 에러 감지 - 현재 사용자로 재시도');
-        final currentUser = _auth.currentUser;
-        if (currentUser != null) {
-          print('현재 사용자 발견: ${currentUser.uid}');
-          await _updateLoginInfo(currentUser.uid);
-          return await getUserData(currentUser.uid);
-        }
-      }
-      throw Exception('로그인 중 예상치 못한 오류가 발생했습니다.');
+      return {
+        'success': false,
+        'message': '로그인 중 예상치 못한 오류가 발생했습니다.',
+      };
     }
   }
 
-  // 로그인 정보 업데이트 (안전하게)
+  // 🔥 인증 이메일 재발송 (새로 추가)
+  Future<Map<String, dynamic>> resendVerificationEmail(String email, String password) async {
+    try {
+      // 임시 로그인
+      UserCredential result = await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password.trim(),
+      );
+
+      User? user = result.user;
+
+      if (user != null && !user.emailVerified) {
+        await user.sendEmailVerification();
+        await _auth.signOut();  // 다시 로그아웃
+
+        return {
+          'success': true,
+          'message': '인증 이메일을 재발송했습니다. 메일함을 확인해주세요.',
+        };
+      }
+
+      return {
+        'success': false,
+        'message': '이미 인증된 계정이거나 오류가 발생했습니다.',
+      };
+
+    } catch (e) {
+      return {
+        'success': false,
+        'message': '재발송 실패: $e',
+      };
+    }
+  }
+
+  // 로그인 정보 업데이트 (기존 코드에 emailVerified 추가)
   Future<void> _updateLoginInfo(String uid) async {
     try {
       final deviceData = await _getSafeDeviceInfo();
@@ -207,17 +267,17 @@ class AuthService {
           'deviceInfo': deviceData['info'] as Map<String, String>,
           'lastLoginAt': Timestamp.fromDate(now),
           'loginHistory': existingHistory,
+          'emailVerified': true,  // 🔥 이메일 인증 완료 표시
         });
 
         print('로그인 정보 업데이트 완료');
       }
     } catch (e) {
       print('로그인 정보 업데이트 실패: $e');
-      // 로그인 정보 업데이트 실패해도 로그인은 성공으로 처리
     }
   }
 
-  // 로그아웃
+  // 로그아웃 (기존 코드 유지)
   Future<void> signOut() async {
     try {
       await _auth.signOut();
@@ -227,7 +287,7 @@ class AuthService {
     }
   }
 
-  // 사용자 데이터 가져오기 (안전하게)
+  // 사용자 데이터 가져오기 (기존 코드 유지)
   Future<UserModel?> getUserData(String uid) async {
     try {
       print('사용자 데이터 가져오기: $uid');
@@ -254,6 +314,7 @@ class AuthService {
             deviceInfo: deviceData['info'] as Map<String, String>,
             lastLoginAt: DateTime.now(),
             loginHistory: [DateTime.now().toIso8601String()],
+            isEmailVerified: currentUser.emailVerified,  // 🔥 이메일 인증 상태 추가
           );
 
           try {

@@ -1,3 +1,5 @@
+// lib/screens/sign_up_screen.dart - 이메일 인증 버전
+
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
@@ -38,57 +40,136 @@ class _SignUpScreenState extends State<SignUpScreen> {
     try {
       print('회원가입 시도: ${_emailController.text.trim()}');
 
-      UserModel? user = await _authService.signUp(
+      // 🔥 변경: Map<String, dynamic> 반환값 처리
+      final result = await _authService.signUp(
         _emailController.text.trim(),
         _passwordController.text.trim(),
         _nameController.text.trim(),
       );
 
-      print('회원가입 결과 - user: $user');
+      print('회원가입 결과: $result');
 
-      // 회원가입 성공 처리 (user가 null이 아니면 성공)
-      if (user != null && mounted) {
-        // Firebase Auth에서 자동 로그인되므로 로그아웃 처리
-        try {
-          await _authService.signOut();
-          print('자동 로그인 해제 완료');
-        } catch (signOutError) {
-          print('로그아웃 중 오류 (무시 가능): $signOutError');
-        }
-
-        // 회원가입 성공 알림 표시
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
+      if (result['success'] == true && mounted) {
+        // 🔥 이메일 인증 안내 다이얼로그 표시
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 8),
-                Text('회원가입이 완료되었습니다! 로그인해주세요.'),
+                Icon(Icons.mark_email_read, color: Colors.green, size: 28),
+                SizedBox(width: 10),
+                Text('회원가입 완료'),
               ],
             ),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '📧 인증 이메일을 발송했습니다!',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _emailController.text.trim(),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[700],
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '위 주소로 인증 메일을 보냈습니다',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  '✅ 메일함에서 인증 링크를 클릭해주세요',
+                  style: TextStyle(fontSize: 14),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  '✅ 인증 완료 후 로그인이 가능합니다',
+                  style: TextStyle(fontSize: 14),
+                ),
+                SizedBox(height: 12),
+                Container(
+                  padding: EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.amber[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.amber[700], size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '스팸함도 확인해주세요!',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.amber[800],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // 다이얼로그 닫기
+                  Navigator.of(context).pop(); // 로그인 화면으로
+                },
+                child: Text(
+                  '확인',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
         );
-
-        // 잠시 대기 후 로그인 화면으로 돌아가기
-        await Future.delayed(Duration(milliseconds: 1000));
-
-        if (mounted) {
-          Navigator.pop(context); // 로그인 화면으로 돌아가기
-        }
       } else if (mounted) {
-        // user가 null인 경우 (예상치 못한 상황)
+        // 🔥 실패 메시지 표시
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
-                Icon(Icons.warning, color: Colors.white),
+                Icon(Icons.error, color: Colors.white),
                 SizedBox(width: 8),
-                Text('회원가입 처리 중 문제가 발생했습니다. 로그인을 시도해보세요.'),
+                Expanded(
+                  child: Text(result['message'] ?? '회원가입 실패'),
+                ),
               ],
             ),
-            backgroundColor: Colors.orange,
+            backgroundColor: Colors.red,
             duration: Duration(seconds: 4),
           ),
         );
@@ -97,39 +178,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
       print('회원가입 중 예외 발생: $e');
 
       if (mounted) {
-        String errorMessage = '회원가입 실패';
-        Color backgroundColor = Colors.red;
-        IconData iconData = Icons.error;
-
-        // 특정 오류 메시지 확인
-        String errorString = e.toString().toLowerCase();
-
-        if (errorString.contains('email-already-in-use') ||
-            errorString.contains('이미 사용 중인 이메일')) {
-          errorMessage = '이미 사용 중인 이메일입니다';
-        } else if (errorString.contains('weak-password') ||
-            errorString.contains('너무 약합니다')) {
-          errorMessage = '비밀번호가 너무 약합니다 (6자 이상)';
-        } else if (errorString.contains('invalid-email') ||
-            errorString.contains('이메일 형식')) {
-          errorMessage = '올바르지 않은 이메일 형식입니다';
-        } else if (errorString.contains('network-request-failed')) {
-          errorMessage = '네트워크 연결을 확인해주세요';
-        } else {
-          // 기타 모든 오류는 일반적인 안내로 처리
-          errorMessage = '회원가입 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
-        }
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
-                Icon(iconData, color: Colors.white),
+                Icon(Icons.error, color: Colors.white),
                 SizedBox(width: 8),
-                Expanded(child: Text(errorMessage)),
+                Expanded(
+                  child: Text('회원가입 중 오류가 발생했습니다'),
+                ),
               ],
             ),
-            backgroundColor: backgroundColor,
+            backgroundColor: Colors.red,
             duration: Duration(seconds: 4),
           ),
         );
@@ -145,6 +205,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 기존 UI 코드 그대로 유지
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -203,7 +264,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
               SizedBox(height: 40),
 
-              // 이름
+              // 이름 필드
               TextFormField(
                 controller: _nameController,
                 decoration: InputDecoration(
@@ -227,11 +288,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               SizedBox(height: 16),
 
-              // 이메일
+              // 이메일 필드
               TextFormField(
                 controller: _emailController,
                 decoration: InputDecoration(
                   labelText: '이메일',
+                  helperText: '인증 메일이 발송됩니다',  // 🔥 추가
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -252,7 +314,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               SizedBox(height: 16),
 
-              // 비밀번호
+              // 비밀번호 필드
               TextFormField(
                 controller: _passwordController,
                 decoration: InputDecoration(
@@ -285,7 +347,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               SizedBox(height: 16),
 
-              // 비밀번호 확인
+              // 비밀번호 확인 필드
               TextFormField(
                 controller: _confirmPasswordController,
                 decoration: InputDecoration(
