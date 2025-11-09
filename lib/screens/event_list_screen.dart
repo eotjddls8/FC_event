@@ -167,13 +167,13 @@ class _EventListScreenState extends State<EventListScreen> {
                 ),
               ),
 
-              // 배너 광고
-              SliverToBoxAdapter(
-                child: Container(
-                  color: Colors.white,
-                  child: BannerAdWidget(),
-                ),
-              ),
+              // // 배너 광고
+              // SliverToBoxAdapter(
+              //   child: Container(
+              //     color: Colors.white,
+              //     child: BannerAdWidget(),
+              //   ),
+              // ),
 
               if (events.isEmpty)
                 SliverToBoxAdapter(child: _buildEmptyWidget())

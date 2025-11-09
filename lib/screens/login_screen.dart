@@ -139,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
               SizedBox(height: 20),
 
               Text(
-                'FC 이벤트 알림',
+                '피온 이벤트 알림',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -236,7 +236,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   )
                       : Icon(Icons.login, color: Colors.white),
                   label: Text(
-                    _isLoading ? '로그인 중...' : 'FIFA 로그인',
+                    _isLoading ? '로그인 중...' : '로그인',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

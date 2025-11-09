@@ -117,6 +117,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           Icon(
             widget.event.status == EventStatus.active ? Icons.sports_soccer :
             widget.event.status == EventStatus.upcoming ? Icons.schedule :
+            widget.event.status == EventStatus.rewardPeriod ? Icons.card_giftcard :
             Icons.event_busy,
             size: 48,
             color: Colors.white,
@@ -142,6 +143,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           ] else if (widget.event.status == EventStatus.upcoming) ...[
             Text(
               '곧 시작됩니다',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 14,
+              ),
+            ),
+          ] else if (widget.event.status == EventStatus.rewardPeriod) ...[
+            Text(
+              '보상 수령 기간입니다',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.9),
                 fontSize: 14,
@@ -188,8 +197,39 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           ),
           SizedBox(height: 16),
 
+          // 🎯 3단계 기간 정보 표시
           _buildInfoRow(Icons.play_arrow, '시작일', _formatDate(widget.event.startDate)),
           _buildInfoRow(Icons.stop, '종료일', _formatDate(widget.event.endDate)),
+          _buildInfoRow(Icons.card_giftcard, '보상 마감일', _formatDate(widget.event.rewardEndDate)),
+
+          SizedBox(height: 12),
+
+          // 🎯 현재 상태 표시
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: widget.event.statusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: widget.event.statusColor.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  widget.event.statusIcon,
+                  color: widget.event.statusColor,
+                  size: 20,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  '현재 상태: ${widget.event.statusText}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: widget.event.statusColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -315,7 +355,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
             SizedBox(height: 24),
 
-            // 이벤트 정보
+            // 이벤트 정보 (보상기간 포함)
             _buildEventInfo(),
 
             SizedBox(height: 24),

@@ -123,7 +123,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           children: [
             Icon(Icons.sports_soccer, color: Colors.white),
             SizedBox(width: 8),
-            Text('회원가입'),
+            Text('회원가입', style: TextStyle(color: Colors.white),),
           ],
         ),
         backgroundColor: Colors.blue[600],
@@ -156,7 +156,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     SizedBox(height: 16),
                     Text(
-                      'FC Event',
+                      '피온 이벤트 알림',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -306,10 +306,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
-                      : Icon(Icons.person_add),
+                      : Icon(Icons.person_add, color: Colors.white,),
                   label: Text(
                     _isLoading ? '가입 중...' : '회원가입',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Colors.white , fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue[600],

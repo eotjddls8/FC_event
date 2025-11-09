@@ -293,15 +293,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // 📋 클립보드 복사 함수
+  // 📋 클립보드 복사 함수 (🗑️ 팝업창 제거)
   void _copyToClipboard(String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label이(가) 복사되었습니다'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    // 🗑️ SnackBar 제거 - 이제 복사 완료 팝업이 나타나지 않음
+    // ScaffoldMessenger.of(context).showSnackBar(
+    //   SnackBar(
+    //     content: Text('$label이(가) 복사되었습니다'),
+    //     duration: Duration(seconds: 2),
+    //   ),
+    // );
   }
 
   // 🎨 설정 섹션 빌더
@@ -519,83 +520,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
 
-            // 🔔 알림 설정 - 주석처리
-            /*
-            _buildSection(
-              title: '알림 설정',
-              icon: Icons.notifications,
-              children: [
-                _buildListTile(
-                  leading: Icons.notifications_active,
-                  title: '푸시 알림',
-                  subtitle: '새로운 이벤트 알림을 받습니다',
-                  trailing: Switch(
-                    value: _pushNotifications,
-                    onChanged: (value) {
-                      setState(() {
-                        _pushNotifications = value;
-                      });
-                    },
-                    activeColor: FifaColors.primary,
-                  ),
-                ),
-                Divider(height: 1),
-                _buildListTile(
-                  leading: Icons.email_outlined,
-                  title: '이메일 알림',
-                  subtitle: '이벤트 정보를 이메일로 받습니다',
-                  trailing: Switch(
-                    value: _emailNotifications,
-                    onChanged: (value) {
-                      setState(() {
-                        _emailNotifications = value;
-                      });
-                    },
-                    activeColor: FifaColors.primary,
-                  ),
-                ),
-              ],
-            ),
-            */
-
-            // 🎨 앱 설정 - 주석처리
-            /*
-            _buildSection(
-              title: '앱 설정',
-              icon: Icons.settings,
-              children: [
-                _buildListTile(
-                  leading: Icons.dark_mode,
-                  title: '다크 모드',
-                  subtitle: '어두운 테마를 사용합니다',
-                  trailing: Switch(
-                    value: _darkMode,
-                    onChanged: (value) {
-                      setState(() {
-                        _darkMode = value;
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('다크 모드는 준비 중입니다')),
-                      );
-                    },
-                    activeColor: FifaColors.primary,
-                  ),
-                ),
-                Divider(height: 1),
-                _buildListTile(
-                  leading: Icons.language,
-                  title: '언어',
-                  subtitle: _language,
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('언어 설정은 준비 중입니다')),
-                    );
-                  },
-                ),
-              ],
-            ),
-            */
-
             // 📞 고객 지원
             _buildSection(
               title: '고객 지원',
@@ -617,23 +541,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   onTap: () => _copyToClipboard(_supportEmail, '문의 이메일'),
                 ),
-                // Divider(height: 1),
-                // _buildListTile(
-                //   leading: Icons.admin_panel_settings,
-                //   title: '관리자 문의',
-                //   subtitle: _adminContact,
-                //   trailing: Row(
-                //     mainAxisSize: MainAxisSize.min,
-                //     children: [
-                //       IconButton(
-                //         icon: Icon(Icons.copy, size: 18),
-                //         onPressed: () => _copyToClipboard(_adminContact, '관리자 이메일'),
-                //       ),
-                //       Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                //     ],
-                //   ),
-                //   onTap: () => _copyToClipboard(_adminContact, '관리자 이메일'),
-                // ),
                 Divider(height: 1),
                 _buildListTile(
                   leading: Icons.bug_report,
@@ -641,77 +548,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: '앱 사용 중 문제점을 신고해주세요',
                   onTap: () {
                     _copyToClipboard(_supportEmail, '버그 신고 이메일');
-                    // ScaffoldMessenger.of(context).showSnackBar(
-                    //   SnackBar(content: Text('이메일 주소가 복사되었습니다. ')),
-                    // );
                   },
                 ),
-                // 앱 평가하기 - 주석처리
-                /*
-                Divider(height: 1),
-                _buildListTile(
-                  leading: Icons.star_rate,
-                  title: '앱 평가하기',
-                  subtitle: '앱스토어에서 평가를 남겨주세요',
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.star, color: Colors.amber, size: 16),
-                      SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                    ],
-                  ),
-                  onTap: () => _rateApp(), // 🎯 실제 함수 연결!
-                ),
-                */
-              ],
-            ),
-
-            // ℹ️ 앱 정보
-            _buildSection(
-              title: '앱 정보',
-              icon: Icons.info_outline,
-              children: [
-                _buildListTile(
-                  leading: Icons.sports_soccer,
-                  title: '피온 이벤트 알림',
-                  subtitle: '버전 $_appVersion',
-                ),
-                // 업데이트 확인 - 주석처리
-                /*
-                Divider(height: 1),
-                _buildListTile(
-                  leading: Icons.update,
-                  title: '업데이트 확인',
-                  subtitle: '최신 버전인지 확인합니다',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('최신 버전입니다!')),
-                    );
-                  },
-                ),
-                */
-                Divider(height: 1),
-                _buildListTile(
-                  leading: Icons.privacy_tip,
-                  title: '개인정보 처리방침',
-                  subtitle: '개인정보 보호 정책을 확인하세요',
-                  onTap: () => _openWebsite('https://plip.kr/pcc/3e76264e-029f-48f9-8bde-f151fbd16712/privacy/1.html'),
-                ),
-                // 이용약관 - 주석처리
-                /*
-                Divider(height: 1),
-                _buildListTile(
-                  leading: Icons.gavel,
-                  title: '이용약관',
-                  subtitle: '서비스 이용약관을 확인하세요',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('이용약관 페이지는 준비 중입니다')),
-                    );
-                  },
-                ),
-                */
               ],
             ),
 
@@ -759,7 +597,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             // 저작권 정보
             Text(
-              '© 2024 피온 이벤트 알림\nMade with ❤️ for PION fans',
+              '본 앱은 넥슨(NEXON)의 공식 앱이 아니며,\n넥슨 및 관련 서비스와 어떠한 관련도 없습니다.\n이벤트 알림용으로만 사용하십시오.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
