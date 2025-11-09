@@ -28,9 +28,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _language = '한국어';
 
   // 문의용 정보
-  final String _supportEmail = 'eotjddls903@gmail.com';
-  final String _adminContact = 'admin@pionevents.com';
-  final String _appVersion = '1.0.0';
+  final String _supportEmail = 'contact.infinitelink@gmail.com';
+
 
   // 🎯 앱 평가하기 함수
   Future<void> _rateApp() async {
