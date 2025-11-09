@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'screens/auth_wrapper.dart'; // 🎯 AuthWrapper로 변경 (Native Splash 사용하므로)
+import 'screens/auth_wrapper.dart'; // 🎯 간소화된 AuthWrapper 사용
 import 'theme/fifa_theme.dart';
 
 void main() async {
@@ -17,12 +17,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '피온 이벤트 알림', // 🎯 앱 이름 변경
+      title: '피온 이벤트 알림',
       theme: ThemeData(
         primarySwatch: Colors.blue,
         fontFamily: 'Roboto',
-      ), // 🎯 기본 테마 사용
-      // 🎯 한국어 지원 추가
+        scaffoldBackgroundColor: Color(0xFFF5F7FA), // 🎯 기본 배경색 설정
+      ),
+      // 한국어 지원
       localizationsDelegates: [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -32,8 +33,8 @@ class MyApp extends StatelessWidget {
         Locale('ko', 'KR'), // 한국어
         Locale('en', 'US'), // 영어
       ],
-      locale: Locale('ko', 'KR'), // 기본 언어를 한국어로 설정
-      // 🎯 AuthWrapper로 시작 (Native Splash 이후)
+      locale: Locale('ko', 'KR'),
+      // 🎯 간소화된 AuthWrapper 사용 (로그인 없이 바로 시작)
       home: AuthWrapper(),
       debugShowCheckedModeBanner: false,
     );

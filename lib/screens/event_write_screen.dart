@@ -6,7 +6,7 @@ import '../theme/fifa_theme.dart';
 
 class EventWriteScreen extends StatefulWidget {
   final UserModel currentUser;
-  final Event? editEvent; // 수정할 이벤트 (null이면 새 이벤트)
+  final Event? editEvent;
 
   const EventWriteScreen({
     Key? key,
@@ -25,22 +25,24 @@ class _EventWriteScreenState extends State<EventWriteScreen> {
 
   DateTime? _selectedStartDate;
   DateTime? _selectedEndDate;
+  DateTime? _selectedRewardEndDate; // 🎯 보상 종료 날짜 추가
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
 
-    // 수정 모드인 경우 기존 데이터 로드
     if (widget.editEvent != null) {
       _titleController.text = widget.editEvent!.title;
       _contentController.text = widget.editEvent!.content;
       _selectedStartDate = widget.editEvent!.startDate;
       _selectedEndDate = widget.editEvent!.endDate;
+      _selectedRewardEndDate = widget.editEvent!.rewardEndDate;
     } else {
-      // 새 이벤트인 경우 기본값 설정
+      // 기본값 설정
       _selectedStartDate = DateTime.now();
       _selectedEndDate = DateTime.now().add(Duration(days: 7));
+      _selectedRewardEndDate = DateTime.now().add(Duration(days: 14));
     }
   }
 
@@ -51,34 +53,43 @@ class _EventWriteScreenState extends State<EventWriteScreen> {
     super.dispose();
   }
 
-  // 🗓️ 날짜 선택기 (25년 전부터 미래까지)
+  // 🗓️ 날짜 선택기
   Future<void> _selectDate({
     required BuildContext context,
-    required bool isStartDate,
+    required String dateType,
   }) async {
-    final DateTime initialDate = isStartDate
-        ? (_selectedStartDate ?? DateTime.now())
-        : (_selectedEndDate ?? DateTime.now().add(Duration(days: 7)));
+    DateTime initialDate;
+    String helpText;
 
-    final DateTime firstDate = DateTime(1999, 1, 1); // 25년 전
-    final DateTime lastDate = DateTime(2099, 12, 31); // 먼 미래까지
+    switch (dateType) {
+      case 'start':
+        initialDate = _selectedStartDate ?? DateTime.now();
+        helpText = '이벤트 시작 날짜';
+        break;
+      case 'end':
+        initialDate = _selectedEndDate ?? DateTime.now().add(Duration(days: 7));
+        helpText = '이벤트 종료 날짜';
+        break;
+      case 'reward':
+        initialDate = _selectedRewardEndDate ?? DateTime.now().add(Duration(days: 14));
+        helpText = '보상 수령 마감 날짜';
+        break;
+      default:
+        return;
+    }
 
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: initialDate,
-      firstDate: firstDate,
-      lastDate: lastDate,
-      helpText: isStartDate ? '시작 날짜 선택' : '종료 날짜 선택',
-      cancelText: '취소',
-      confirmText: '확인',
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      helpText: helpText,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: ColorScheme.light(
               primary: FifaColors.primary,
               onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
             ),
           ),
           child: child!,
@@ -88,56 +99,63 @@ class _EventWriteScreenState extends State<EventWriteScreen> {
 
     if (picked != null) {
       setState(() {
-        if (isStartDate) {
-          _selectedStartDate = picked;
-          // 시작 날짜가 종료 날짜보다 늦으면 종료 날짜를 시작 날짜 + 1일로 설정
-          if (_selectedEndDate != null && picked.isAfter(_selectedEndDate!)) {
-            _selectedEndDate = picked.add(Duration(days: 1));
-          }
-        } else {
-          _selectedEndDate = picked;
-          // 종료 날짜가 시작 날짜보다 빠르면 시작 날짜를 종료 날짜 - 1일로 설정
-          if (_selectedStartDate != null && picked.isBefore(_selectedStartDate!)) {
-            _selectedStartDate = picked.subtract(Duration(days: 1));
-          }
+        switch (dateType) {
+          case 'start':
+            _selectedStartDate = picked;
+            // 연쇄적으로 날짜 조정
+            if (_selectedEndDate != null && picked.isAfter(_selectedEndDate!)) {
+              _selectedEndDate = picked.add(Duration(days: 7));
+            }
+            if (_selectedRewardEndDate != null && _selectedEndDate != null &&
+                _selectedEndDate!.isAfter(_selectedRewardEndDate!)) {
+              _selectedRewardEndDate = _selectedEndDate!.add(Duration(days: 7));
+            }
+            break;
+          case 'end':
+            _selectedEndDate = picked;
+            // 시작일보다 빠르면 조정
+            if (_selectedStartDate != null && picked.isBefore(_selectedStartDate!)) {
+              _selectedStartDate = picked.subtract(Duration(days: 1));
+            }
+            // 보상 종료일보다 늦으면 조정
+            if (_selectedRewardEndDate != null && picked.isAfter(_selectedRewardEndDate!)) {
+              _selectedRewardEndDate = picked.add(Duration(days: 7));
+            }
+            break;
+          case 'reward':
+            _selectedRewardEndDate = picked;
+            // 종료일보다 빠르면 조정
+            if (_selectedEndDate != null && picked.isBefore(_selectedEndDate!)) {
+              _selectedEndDate = picked.subtract(Duration(days: 1));
+              if (_selectedStartDate != null && _selectedEndDate!.isBefore(_selectedStartDate!)) {
+                _selectedStartDate = _selectedEndDate!.subtract(Duration(days: 1));
+              }
+            }
+            break;
         }
       });
     }
   }
 
-  // 📅 날짜 표시 포맷
   String _formatDate(DateTime? date) {
     if (date == null) return '날짜를 선택하세요';
-    return '${date.year}년 ${date.month}월 ${date.day}일';
+    return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
   }
 
-  // 💾 이벤트 저장
   Future<void> _saveEvent() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_selectedStartDate == null || _selectedEndDate == null) {
+    if (_selectedStartDate == null || _selectedEndDate == null || _selectedRewardEndDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('시작 날짜와 종료 날짜를 모두 선택해주세요'),
+          content: Text('모든 날짜를 선택해주세요'),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    if (_selectedStartDate!.isAfter(_selectedEndDate!)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('시작 날짜는 종료 날짜보다 빠르거나 같아야 합니다'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
       final eventData = {
@@ -146,284 +164,182 @@ class _EventWriteScreenState extends State<EventWriteScreen> {
         'author': widget.currentUser.email,
         'startDate': Timestamp.fromDate(_selectedStartDate!),
         'endDate': Timestamp.fromDate(_selectedEndDate!),
+        'rewardEndDate': Timestamp.fromDate(_selectedRewardEndDate!), // 🎯 추가
         'likes': widget.editEvent?.likes ?? 0,
         'likedUsers': widget.editEvent?.likedUsers ?? [],
       };
 
       if (widget.editEvent != null) {
-        // 수정 모드
         eventData['createdAt'] = Timestamp.fromDate(widget.editEvent!.createdAt);
         await FirebaseFirestore.instance
             .collection('events')
             .doc(widget.editEvent!.id)
             .update(eventData);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('이벤트가 수정되었습니다'),
-            backgroundColor: Colors.green,
-          ),
-        );
       } else {
-        // 생성 모드
         eventData['createdAt'] = Timestamp.fromDate(DateTime.now());
-        await FirebaseFirestore.instance
-            .collection('events')
-            .add(eventData);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('이벤트가 생성되었습니다'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        await FirebaseFirestore.instance.collection('events').add(eventData);
       }
 
       Navigator.pop(context);
     } catch (e) {
-      print('이벤트 저장 에러: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('오류가 발생했습니다: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('오류 발생: $e'), backgroundColor: Colors.red),
       );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Color(0xFFF5F7FA),
       appBar: AppBar(
         title: Text(
-          widget.editEvent != null ? '이벤트 수정' : '이벤트 작성',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          widget.editEvent != null ? '이벤트 수정' : '새 이벤트 만들기',
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
-        backgroundColor: FifaColors.primary,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          // 저장 버튼
-          TextButton(
-            onPressed: _isLoading ? null : _saveEvent,
-            child: Text(
-              '저장',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Container(
+            color: Colors.grey[200],
+            height: 1,
           ),
-        ],
+        ),
       ),
       body: _isLoading
-          ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: FifaColors.primary),
-            SizedBox(height: 16),
-            Text('저장 중...', style: TextStyle(color: Colors.grey)),
-          ],
-        ),
-      )
+          ? Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.all(20),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 📝 제목 입력
-              _buildSectionTitle('이벤트 제목', Icons.title),
-              SizedBox(height: 8),
-              _buildInputCard(
+              // 제목 입력
+              _buildInputSection(
+                icon: Icons.title_rounded,
+                title: '이벤트 제목',
                 child: TextFormField(
                   controller: _titleController,
                   decoration: InputDecoration(
-                    hintText: '예: FIFA 월드컵 예측 이벤트',
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.all(16),
+                    hintText: '매력적인 이벤트 제목을 입력하세요',
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return '제목을 입력해주세요';
                     }
-                    if (value.trim().length < 2) {
-                      return '제목은 2자 이상 입력해주세요';
-                    }
                     return null;
                   },
-                  maxLength: 50,
-                  style: TextStyle(fontSize: 16),
                 ),
               ),
 
-              SizedBox(height: 24),
-
-              // 📄 내용 입력
-              _buildSectionTitle('이벤트 내용', Icons.description),
-              SizedBox(height: 8),
-              _buildInputCard(
+              // 내용 입력
+              _buildInputSection(
+                icon: Icons.description_rounded,
+                title: '이벤트 내용',
                 child: TextFormField(
                   controller: _contentController,
                   decoration: InputDecoration(
-                    hintText: '이벤트에 대한 자세한 설명을 입력하세요...',
-                    border: InputBorder.none,
+                    hintText: '이벤트 상세 내용을 입력하세요',
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
                     contentPadding: EdgeInsets.all(16),
                   ),
+                  maxLines: 6,
+                  maxLength: 500,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return '내용을 입력해주세요';
                     }
-                    if (value.trim().length < 3) {
-                      return '내용은 3자 이상 입력해주세요';
-                    }
                     return null;
                   },
-                  maxLines: 5,
-                  maxLength: 500,
-                  style: TextStyle(fontSize: 14, height: 1.5),
                 ),
               ),
 
-              SizedBox(height: 24),
-
-              // 📅 시작 날짜
-              _buildSectionTitle('시작 날짜', Icons.event),
-              SizedBox(height: 8),
-              _buildInputCard(
-                child: InkWell(
-                  onTap: () => _selectDate(context: context, isStartDate: true),
-                  child: Container(
-                    padding: EdgeInsets.all(16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '시작 날짜',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              _formatDate(_selectedStartDate),
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: _selectedStartDate != null
-                                    ? Colors.black87
-                                    : Colors.grey[400],
-                              ),
-                            ),
-                          ],
-                        ),
-                        Icon(
-                          Icons.calendar_today,
-                          color: FifaColors.primary,
-                        ),
-                      ],
+              // 🎯 3단계 날짜 선택 섹션
+              _buildInputSection(
+                icon: Icons.calendar_month_rounded,
+                title: '이벤트 기간 설정',
+                child: Column(
+                  children: [
+                    // 시작 날짜
+                    _buildDateSelector(
+                      label: '이벤트 시작',
+                      date: _selectedStartDate,
+                      color: Color(0xFF2196F3),
+                      icon: Icons.play_arrow_rounded,
+                      onTap: () => _selectDate(context: context, dateType: 'start'),
                     ),
-                  ),
-                ),
-              ),
+                    SizedBox(height: 12),
 
-              SizedBox(height: 16),
-
-              // 📅 종료 날짜
-              _buildSectionTitle('종료 날짜', Icons.event_busy),
-              SizedBox(height: 8),
-              _buildInputCard(
-                child: InkWell(
-                  onTap: () => _selectDate(context: context, isStartDate: false),
-                  child: Container(
-                    padding: EdgeInsets.all(16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '종료 날짜',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              _formatDate(_selectedEndDate),
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: _selectedEndDate != null
-                                    ? Colors.black87
-                                    : Colors.grey[400],
-                              ),
-                            ),
-                          ],
-                        ),
-                        Icon(
-                          Icons.calendar_today,
-                          color: FifaColors.primary,
-                        ),
-                      ],
+                    // 종료 날짜
+                    _buildDateSelector(
+                      label: '이벤트 종료',
+                      date: _selectedEndDate,
+                      color: Color(0xFFF44336),
+                      icon: Icons.stop_rounded,
+                      onTap: () => _selectDate(context: context, dateType: 'end'),
                     ),
-                  ),
+                    SizedBox(height: 12),
+
+                    // 보상 종료 날짜
+                    _buildDateSelector(
+                      label: '보상 수령 마감',
+                      date: _selectedRewardEndDate,
+                      color: Color(0xFFFFC107),
+                      icon: Icons.card_giftcard_rounded,
+                      onTap: () => _selectDate(context: context, dateType: 'reward'),
+                    ),
+                  ],
                 ),
               ),
 
-              SizedBox(height: 24),
-
-              // 📊 이벤트 미리보기
-              if (_selectedStartDate != null && _selectedEndDate != null)
-                _buildPreviewCard(),
+              // 기간 미리보기
+              if (_selectedStartDate != null &&
+                  _selectedEndDate != null &&
+                  _selectedRewardEndDate != null)
+                _buildPeriodPreview(),
 
               SizedBox(height: 32),
 
-              // 💾 저장 버튼 (하단)
+              // 저장 버튼
               Container(
                 width: double.infinity,
-                height: 56,
+                height: 54,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _saveEvent,
+                  onPressed: _saveEvent,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: FifaColors.primary,
-                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    elevation: 4,
+                    elevation: 0,
                   ),
-                  child: _isLoading
-                      ? CircularProgressIndicator(color: Colors.white)
-                      : Text(
+                  child: Text(
                     widget.editEvent != null ? '수정 완료' : '이벤트 생성',
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
                     ),
                   ),
                 ),
               ),
-
-              SizedBox(height: 16),
             ],
           ),
         ),
@@ -431,120 +347,174 @@ class _EventWriteScreenState extends State<EventWriteScreen> {
     );
   }
 
-  // 🎨 섹션 제목 위젯
-  Widget _buildSectionTitle(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, color: FifaColors.primary, size: 20),
-        SizedBox(width: 8),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: FifaColors.primary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 🎨 입력 카드 위젯
-  Widget _buildInputCard({required Widget child}) {
+  Widget _buildInputSection({
+    required IconData icon,
+    required String title,
+    required Widget child,
+  }) {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: Offset(0, 2),
+      margin: EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 20, color: FifaColors.primary),
+              SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
           ),
+          SizedBox(height: 12),
+          child,
         ],
       ),
-      child: child,
     );
   }
 
-  // 📊 미리보기 카드
-  Widget _buildPreviewCard() {
-    final now = DateTime.now();
-    final startDate = _selectedStartDate!;
-    final endDate = _selectedEndDate!;
-    final duration = endDate.difference(startDate).inDays + 1;
-
-    String status;
-    Color statusColor;
-
-    if (now.isBefore(startDate)) {
-      final daysUntilStart = startDate.difference(now).inDays;
-      status = 'D-${daysUntilStart}일 후 시작';
-      statusColor = Colors.blue;
-    } else if (now.isAfter(endDate)) {
-      status = '종료됨';
-      statusColor = Colors.grey;
-    } else {
-      final daysLeft = endDate.difference(now).inDays;
-      status = 'D-${daysLeft}일 남음';
-      statusColor = daysLeft <= 3 ? Colors.red : Colors.green;
-    }
-
-    return _buildInputCard(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.preview, color: FifaColors.primary, size: 20),
-                SizedBox(width: 8),
-                Text(
-                  '이벤트 미리보기',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: FifaColors.primary,
-                  ),
+  Widget _buildDateSelector({
+    required String label,
+    required DateTime? date,
+    required Color color,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-              ],
-            ),
-            SizedBox(height: 12),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: statusColor,
-                borderRadius: BorderRadius.circular(12),
+                child: Icon(icon, color: color, size: 20),
               ),
-              child: Text(
-                status,
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      _formatDate(date),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: date != null ? Colors.black87 : Colors.grey[400],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.calendar_today_rounded, color: Colors.grey[400], size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPeriodPreview() {
+    final eventDuration = _selectedEndDate!.difference(_selectedStartDate!).inDays + 1;
+    final rewardDuration = _selectedRewardEndDate!.difference(_selectedEndDate!).inDays;
+    final totalDuration = _selectedRewardEndDate!.difference(_selectedStartDate!).inDays + 1;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 24),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFE3F2FD), Color(0xFFFFF9C4)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.timeline, size: 20, color: FifaColors.primary),
+              SizedBox(width: 8),
+              Text(
+                '이벤트 기간 요약',
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: FifaColors.primary,
                 ),
               ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              '이벤트 기간: ${duration}일',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
+            ],
+          ),
+          SizedBox(height: 12),
+          _buildPeriodRow('이벤트 진행', eventDuration, Color(0xFF2196F3)),
+          SizedBox(height: 8),
+          _buildPeriodRow('보상 수령', rewardDuration, Color(0xFFFFC107)),
+          SizedBox(height: 8),
+          Divider(color: Colors.grey[400]),
+          SizedBox(height: 8),
+          _buildPeriodRow('전체 기간', totalDuration, Colors.grey[700]!),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPeriodRow(String label, int days, Color color) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 4,
+              height: 16,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
+            SizedBox(width: 8),
             Text(
-              '${_formatDate(startDate)} ~ ${_formatDate(endDate)}',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              label,
+              style: TextStyle(fontSize: 13, color: Colors.grey[700]),
             ),
           ],
         ),
-      ),
+        Text(
+          '$days일',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 }

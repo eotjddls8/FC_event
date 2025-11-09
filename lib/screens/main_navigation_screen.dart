@@ -1,106 +1,147 @@
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../theme/fifa_theme.dart';
-import 'event_list_screen.dart';
+import 'event_list_screen.dart' as event;
+import 'board_list_screen.dart' as board;
+import 'prize_list_screen.dart';
 import 'ad_reward_screen.dart';
-import 'home_screen.dart';
-import 'login_screen.dart';
 import 'settings_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
-  final UserModel? currentUser; // null이면 비회원
+  final UserModel? currentUser;
 
-  const MainNavigationScreen({Key? key, this.currentUser}) : super(key: key);
+  const MainNavigationScreen({
+    Key? key,
+    this.currentUser,
+  }) : super(key: key);
 
   @override
   _MainNavigationScreenState createState() => _MainNavigationScreenState();
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  int _selectedIndex = 0;
-  late List<Widget> _screens;
-  late List<BottomNavigationBarItem> _navItems;
+  int _currentIndex = 0;
+
+  late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
-    print('MainNavigationScreen - currentUser: ${widget.currentUser?.name ?? "비회원"} (${widget.currentUser?.role ?? "guest"})');
 
-    if (widget.currentUser != null) {
-      // 로그인한 사용자: 모든 기능 접근 가능
-      _screens = [
-        EventListScreen(currentUser: widget.currentUser),
-        AdRewardScreen(currentUser: widget.currentUser),
-        SettingsScreen(currentUser: widget.currentUser),
-        //HomeScreen(),
-      ];
-      _navItems = [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.sports_soccer),
-          label: 'FC 이벤트',
-        ),
-         BottomNavigationBarItem(
-           icon: Icon(Icons.card_giftcard),
-           label: '광고 보상',
-         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.settings),
-          label: '설정',
-        ),
-      ];
-    } else {
-      // 비회원: 이벤트 보기 + 로그인 화면만
-      _screens = [
-        EventListScreen(currentUser: null), // 비회원도 이벤트 목록 볼 수 있음
-        AdRewardScreen(currentUser: null),
-        LoginScreen(), // 로그인 화면
-      ];
-      _navItems = [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.sports_soccer),
-          label: 'FC 이벤트',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.card_giftcard),
-          label: '추첨 보상',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.login),
-          label: '로그인',
-        ),
-      ];
-    }
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    // 🎯 개선된 스크린 사용
+    _screens = [
+      event.EventListScreen(currentUser: widget.currentUser),  // 개선된 이벤트 리스트
+      board.EventListScreen(currentUser: widget.currentUser),
+      PrizeListScreen(currentUser: widget.currentUser),
+      AdRewardScreen(currentUser: widget.currentUser),
+      SettingsScreen(currentUser: widget.currentUser),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
-        index: _selectedIndex,
+        index: _currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: FifaColors.primary,
-        unselectedItemColor: FifaColors.textSecondary,
-        selectedLabelStyle: TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: Offset(0, -5),
+            ),
+          ],
         ),
-        unselectedLabelStyle: TextStyle(
-          fontSize: 12,
+        child: SafeArea(
+          child: Container(
+            height: 60,
+            child: BottomNavigationBar(
+              currentIndex: _currentIndex,
+              onTap: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.white,
+              selectedItemColor: FifaColors.primary,
+              unselectedItemColor: Colors.grey[400],
+              selectedLabelStyle: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedLabelStyle: TextStyle(
+                fontSize: 11,
+              ),
+              items: [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.event_outlined, size: 24),
+                  activeIcon: Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: FifaColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.event, size: 24),
+                  ),
+                  label: '이벤트',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.forum_outlined, size: 24),
+                  activeIcon: Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: FifaColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.forum, size: 24),
+                  ),
+                  label: '게시판',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.card_giftcard_outlined, size: 24),
+                  activeIcon: Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: FifaColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.card_giftcard, size: 24),
+                  ),
+                  label: '경품',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.monetization_on_outlined, size: 24),
+                  activeIcon: Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: FifaColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.monetization_on, size: 24),
+                  ),
+                  label: '코인',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.settings_outlined, size: 24),
+                  activeIcon: Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: FifaColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.settings, size: 24),
+                  ),
+                  label: '설정',
+                ),
+              ],
+            ),
+          ),
         ),
-        elevation: 8,
-        items: _navItems,
       ),
     );
   }

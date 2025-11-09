@@ -1,3 +1,5 @@
+
+/*
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
@@ -93,6 +95,39 @@ class AuthWrapper extends StatelessWidget {
         print('Firebase 사용자 없음 - 비회원으로 시작');
         return MainNavigationScreen(currentUser: null);
       },
+    );
+  }
+}
+
+
+
+
+ */
+
+import 'package:flutter/material.dart';
+import '../models/user_model.dart';
+import 'main_navigation_screen.dart';
+
+class AuthWrapper extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    // 🎯 임시 관리자 계정 (로그인 없이 테스트용)
+    // 나중에 로그인 기능 복구시 제거
+    final testAdmin = UserModel(
+      email: 'admin@test.com',
+      name: '관리자',
+      role: 'admin',
+      deviceFingerprint: 'test_device',
+      deviceInfo: {'platform': 'test'},
+      lastLoginAt: DateTime.now(),
+      loginHistory: [],
+    );
+
+    // 🎯 로그인 없이 바로 메인 화면으로 이동
+    // 관리자 기능 테스트를 위해 testAdmin 전달
+    // 실제 배포시에는 null로 변경하여 비회원 모드로 사용
+    return MainNavigationScreen(
+      currentUser: testAdmin, // 또는 null for 비회원 모드
     );
   }
 }
