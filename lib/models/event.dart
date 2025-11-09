@@ -9,7 +9,7 @@ class Event {
   final DateTime createdAt;
   final DateTime startDate;
   final DateTime endDate;
-  final DateTime rewardEndDate; // 🎯 보상 종료 날짜 추가
+  final DateTime rewardEndDate; // 🎯 보상 종료 날짜
   final int likes;
   final List<String> likedUsers;
 
@@ -21,54 +21,70 @@ class Event {
     required this.createdAt,
     required this.startDate,
     required this.endDate,
-    required this.rewardEndDate, // 🎯 필수 필드로 추가
+    required this.rewardEndDate,
     this.likes = 0,
     this.likedUsers = const [],
   });
 
-  // 남은 일수 계산
-  int get daysRemaining {
-    final now = DateTime.now();
-
-    // 3단계 상태에 따른 남은 일수 계산
-    if (now.isBefore(startDate)) {
-      // 시작 전: 시작까지 남은 일수
-      return startDate.difference(now).inDays;
-    } else if (now.isBefore(endDate)) {
-      // 진행 중: 종료까지 남은 일수
-      return endDate.difference(now).inDays;
-    } else if (now.isBefore(rewardEndDate)) {
-      // 보상 기간: 보상 종료까지 남은 일수
-      return rewardEndDate.difference(now).inDays;
-    } else {
-      // 완전 종료
-      return -1;
-    }
-  }
-
-  // 🎯 3단계 이벤트 상태
+  // 🎯 3단계 이벤트 상태 (수정됨 - 명확한 로직)
   EventStatus get status {
     final now = DateTime.now();
 
-    if (now.isBefore(startDate)) {
-      return EventStatus.upcoming; // 시작 예정
-    } else if (now.isBefore(endDate)) {
-      return EventStatus.active; // 진행 중
-    } else if (now.isBefore(rewardEndDate)) {
-      return EventStatus.rewardPeriod; // 보상 수령 기간
+    // 시간 제거하고 날짜만 비교
+    final today = DateTime(now.year, now.month, now.day);
+    final startDay = DateTime(startDate.year, startDate.month, startDate.day);
+    final endDay = DateTime(endDate.year, endDate.month, endDate.day);
+    final rewardEndDay = DateTime(rewardEndDate.year, rewardEndDate.month, rewardEndDate.day);
+
+    // 조건 체크 순서: 가장 나중 → 가장 이른 순서
+    if (today.isBefore(startDay)) {
+      // 오늘 < 시작일
+      return EventStatus.upcoming;
+    } else if (today.isAfter(rewardEndDay)) {
+      // 오늘 > 보상종료일
+      return EventStatus.ended;
+    } else if (today.isAfter(endDay)) {
+      // 이벤트종료일 < 오늘 <= 보상종료일
+      return EventStatus.rewardPeriod;
     } else {
-      return EventStatus.ended; // 완전 종료
+      // 시작일 <= 오늘 <= 이벤트종료일
+      return EventStatus.active;
     }
   }
 
-  // 🎯 상태별 색상 (3단계)
+  // 남은 일수 계산
+  int get daysRemaining {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // 날짜만 비교
+    int calculateDaysDifference(DateTime targetDate) {
+      final targetDay = DateTime(targetDate.year, targetDate.month, targetDate.day);
+      return targetDay.difference(today).inDays;
+    }
+
+    // 상태에 따른 남은 일수
+    switch (status) {
+      case EventStatus.upcoming:
+        return calculateDaysDifference(startDate);
+      case EventStatus.active:
+        return calculateDaysDifference(endDate);
+      case EventStatus.rewardPeriod:
+        return calculateDaysDifference(rewardEndDate);
+      case EventStatus.ended:
+        return -1;
+    }
+  }
+
+  // 🎯 상태별 색상
   Color get statusColor {
     switch (status) {
       case EventStatus.upcoming:
         return Color(0xFF9E9E9E); // 회색 (시작 예정)
       case EventStatus.active:
       // 진행 중 - 남은 기간에 따라 색상 변경
-        if (daysRemaining > 3) return Color(0xFF2196F3); // 파랑
+        if (daysRemaining > 7) return Color(0xFF2196F3); // 파랑
+        if (daysRemaining > 3) return Color(0xFFFFC107); // 노랑
         if (daysRemaining > 1) return Color(0xFFFF9800); // 주황
         return Color(0xFFF44336); // 빨강 (마감 임박)
       case EventStatus.rewardPeriod:
@@ -78,7 +94,7 @@ class Event {
     }
   }
 
-  // 🎯 상태 텍스트 (3단계)
+  // 🎯 상태 텍스트
   String get statusText {
     switch (status) {
       case EventStatus.upcoming:
@@ -112,6 +128,7 @@ class Event {
     }
   }
 
+  // Firestore에서 데이터 가져오기
   factory Event.fromFirestore(DocumentSnapshot doc) {
     Map data = doc.data() as Map<String, dynamic>;
 
@@ -134,6 +151,7 @@ class Event {
     );
   }
 
+  // Firestore에 데이터 저장
   Map<String, dynamic> toFirestore() {
     return {
       'title': title,
@@ -142,18 +160,19 @@ class Event {
       'createdAt': Timestamp.fromDate(createdAt),
       'startDate': Timestamp.fromDate(startDate),
       'endDate': Timestamp.fromDate(endDate),
-      'rewardEndDate': Timestamp.fromDate(rewardEndDate), // 🎯 추가
+      'rewardEndDate': Timestamp.fromDate(rewardEndDate),
       'likes': likes,
       'likedUsers': likedUsers,
     };
   }
 
+  // 좋아요 여부 확인
   bool isLikedBy(String userEmail) {
     return likedUsers.contains(userEmail);
   }
 }
 
-// 🎯 4단계 상태로 확장
+// 🎯 이벤트 상태 Enum
 enum EventStatus {
   upcoming,      // 시작 예정
   active,        // 진행 중

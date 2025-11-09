@@ -397,16 +397,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(
-          '설정',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+        title: Row(
+          children: [
+            Icon(Icons.settings, color: Colors.white),
+            SizedBox(width: 8),
+            Text('설정',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
-        backgroundColor: FifaColors.primary,
+        backgroundColor: Colors.blue[600],
         elevation: 0,
         automaticallyImplyLeading: false,
       ),

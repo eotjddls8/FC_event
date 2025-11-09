@@ -762,7 +762,12 @@ class _AdRewardScreenState extends State<AdRewardScreen> {
           children: [
             Icon(Icons.casino, color: Colors.white),
             SizedBox(width: 8),
-            Text('추첨 이벤트'),
+            Text('추첨 이벤트',
+              style: TextStyle(
+              color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
         backgroundColor: Colors.blue[600],

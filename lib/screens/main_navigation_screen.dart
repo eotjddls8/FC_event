@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../theme/fifa_theme.dart';
-import 'event_list_screen.dart' as event;
-import 'board_list_screen.dart' as board;
+import 'event_list_screen.dart';
+//import 'board_list_screen.dart';
 import 'prize_list_screen.dart';
 import 'ad_reward_screen.dart';
 import 'settings_screen.dart';
@@ -30,8 +30,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
     // 🎯 개선된 스크린 사용
     _screens = [
-      event.EventListScreen(currentUser: widget.currentUser),  // 개선된 이벤트 리스트
-      board.EventListScreen(currentUser: widget.currentUser),
+      EventListScreen(currentUser: widget.currentUser),  // 개선된 이벤트 리스트
+      //BoardListScreen(currentUser: widget.currentUser),
       PrizeListScreen(currentUser: widget.currentUser),
       AdRewardScreen(currentUser: widget.currentUser),
       SettingsScreen(currentUser: widget.currentUser),
@@ -57,89 +57,76 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ],
         ),
         child: SafeArea(
-          child: Container(
-            height: 60,
-            child: BottomNavigationBar(
-              currentIndex: _currentIndex,
-              onTap: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
-              type: BottomNavigationBarType.fixed,
-              backgroundColor: Colors.white,
-              selectedItemColor: FifaColors.primary,
-              unselectedItemColor: Colors.grey[400],
-              selectedLabelStyle: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-              unselectedLabelStyle: TextStyle(
-                fontSize: 11,
-              ),
-              items: [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.event_outlined, size: 24),
-                  activeIcon: Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: FifaColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.event, size: 24),
-                  ),
-                  label: '이벤트',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.forum_outlined, size: 24),
-                  activeIcon: Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: FifaColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.forum, size: 24),
-                  ),
-                  label: '게시판',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.card_giftcard_outlined, size: 24),
-                  activeIcon: Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: FifaColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.card_giftcard, size: 24),
-                  ),
-                  label: '경품',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.monetization_on_outlined, size: 24),
-                  activeIcon: Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: FifaColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.monetization_on, size: 24),
-                  ),
-                  label: '코인',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.settings_outlined, size: 24),
-                  activeIcon: Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: FifaColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.settings, size: 24),
-                  ),
-                  label: '설정',
-                ),
-              ],
+          child: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            selectedItemColor: FifaColors.primary,
+            unselectedItemColor: Colors.grey[400],
+            selectedLabelStyle: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
+            unselectedLabelStyle: TextStyle(
+              fontSize: 11,
+            ),
+            elevation: 0,
+            items: [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.event_outlined, size: 22),
+                activeIcon: Container(
+                  padding: EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: FifaColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.event, size: 22),
+                ),
+                label: '이벤트',
+              ),
+
+              BottomNavigationBarItem(
+                icon: Icon(Icons.card_giftcard_outlined, size: 22),
+                activeIcon: Container(
+                  padding: EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: FifaColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.card_giftcard, size: 22),
+                ),
+                label: '경품',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.monetization_on_outlined, size: 22),
+                activeIcon: Container(
+                  padding: EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: FifaColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.monetization_on, size: 22),
+                ),
+                label: '코인',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.settings_outlined, size: 22),
+                activeIcon: Container(
+                  padding: EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: FifaColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.settings, size: 22),
+                ),
+                label: '설정',
+              ),
+            ],
           ),
         ),
       ),
