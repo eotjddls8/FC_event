@@ -204,7 +204,7 @@ class _EventListScreenState extends State<EventListScreen> {
             ],
           ),
 
-          // 🎯 관리자용 이벤트 추가 버튼 (Hero Tag 추가)
+          // 🎯 관리자용 이벤트 추가 버튼 (색상 변경)
           floatingActionButton: (widget.currentUser?.isAdmin == true)
               ? FloatingActionButton.extended(
             // 🐛 Hero 애니메이션 충돌 방지를 위해 고유한 heroTag 추가
@@ -221,15 +221,26 @@ class _EventListScreenState extends State<EventListScreen> {
             },
             icon: const Icon(
               Icons.add_rounded,
-              // 아이콘 색상 추가/변경
+              // 🎨 아이콘 색상: 흰색
               color: Colors.white,
             ),
             label: const Text(
               '새 이벤트',
-              // 텍스트 스타일 및 색상 추가/변경
-              style: TextStyle(color: Colors.white),
+              // 🎨 텍스트 스타일 및 색상: 흰색, 굵게
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
-            backgroundColor: FifaColors.primary,
+            // 🎨 배경색: 빨간색으로 변경
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+            elevation: 8,
+            // 🎨 모서리 둥글게
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           )
               : null,
         );
@@ -395,7 +406,8 @@ class _EventListScreenState extends State<EventListScreen> {
       ),
     );
   }
-// 🎯 개선된 이벤트 카드 디자인
+
+  // 🎯 개선된 이벤트 카드 디자인
   Widget _buildEventCard(Event event) {
     final bool isEnded = event.status == EventStatus.ended;
     final ddayInfo = _getDdayInfo(event); // D-Day 정보 가져오기
@@ -404,7 +416,6 @@ class _EventListScreenState extends State<EventListScreen> {
     final Color effectiveBorderColor = isEnded ? Colors.grey[300]! : event.statusColor;
     final double effectiveBorderWidth = isEnded ? 1.0 : 3.0;
     final bool isHighlighted = event.status == EventStatus.active || event.status == EventStatus.rewardPeriod;
-
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -416,6 +427,7 @@ class _EventListScreenState extends State<EventListScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: isEnded ? null : () {
+            // 🔧 EventDetailScreen 호출 수정
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -722,7 +734,7 @@ class _EventListScreenState extends State<EventListScreen> {
     );
   }
 
-// 🎨 이벤트 기간(시작~종료일)만 100%로 표시하는 진행 바
+  // 🎨 이벤트 기간(시작~종료일)만 100%로 표시하는 진행 바
   Widget _buildProgressBar(Event event) {
     final now = DateTime.now();
     final isUpcoming = event.status == EventStatus.upcoming;
@@ -747,7 +759,6 @@ class _EventListScreenState extends State<EventListScreen> {
     else if (isReward || isEnded) {
       progress = 1.0;
     }
-
 
     // 현재 상태에 따른 색상
     Color activeColor;
