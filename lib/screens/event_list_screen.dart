@@ -219,8 +219,16 @@ class _EventListScreenState extends State<EventListScreen> {
                 ),
               );
             },
-            icon: Icon(Icons.add_rounded),
-            label: Text('새 이벤트'),
+            icon: const Icon(
+              Icons.add_rounded,
+              // 아이콘 색상 추가/변경
+              color: Colors.white,
+            ),
+            label: const Text(
+              '새 이벤트',
+              // 텍스트 스타일 및 색상 추가/변경
+              style: TextStyle(color: Colors.white),
+            ),
             backgroundColor: FifaColors.primary,
           )
               : null,

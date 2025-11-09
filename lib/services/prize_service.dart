@@ -1,32 +1,33 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/prize_model.dart';
-import '../models/user_model.dart';
 
 class PrizeService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static const String _prizesCollection = 'prizes';
 
-  // 🚀 복합 쿼리 (인덱스 활용)
-  // 인덱스: status (Asc) + createdAt (Desc)
+  // 🔧 단순화된 쿼리 (인덱스 불필요)
   static Stream<List<PrizeModel>> getPrizesStream() {
     return _firestore
         .collection(_prizesCollection)
-    // 1. 상태 필터링: 'active' 상태만 보여주거나, 필요에 따라 조정
-    // 현재는 모든 상품을 가져오도록 필터링을 제거하고,
-    // 인덱스 활용을 위해 정렬만 사용합니다.
-
-    // 2. 인덱스에 맞게 정렬 조건 추가
-        .orderBy('status', descending: false) // 'status' 오름차순 (Ascending)
-        .orderBy('createdAt', descending: true) // 'createdAt' 내림차순 (Descending)
-        .snapshots()
+        .snapshots()  // 모든 WHERE 조건과 ORDER BY 제거
         .map((snapshot) {
-      final prizes = snapshot.docs
-          .map((doc) => PrizeModel.fromFirestore(doc.data(), doc.id))
-          .toList();
+      if (snapshot.docs.isEmpty) {
+        return <PrizeModel>[];
+      }
 
-      // 클라이언트 정렬(prizes.sort)은 더 이상 필요 없습니다.
-      return prizes;
+      try {
+        final prizes = snapshot.docs
+            .map((doc) => PrizeModel.fromFirestore(doc.data(), doc.id))
+            .toList();
+
+        // 클라이언트에서 정렬 및 필터링 (인덱스 불필요)
+        prizes.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return prizes;
+      } catch (e) {
+        print('Prize 데이터 파싱 오류: $e');
+        return <PrizeModel>[];
+      }
     });
   }
 
@@ -49,7 +50,7 @@ class PrizeService {
       // 관리자 권한 체크
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       final userData = userDoc.data();
-      if (userData == null || userData['isAdmin'] != true) {
+      if (userData == null || userData['role'] != 'admin') {  // isAdmin 대신 role 사용
         throw Exception('관리자 권한이 필요합니다');
       }
 
@@ -85,7 +86,7 @@ class PrizeService {
       // 관리자 권한 체크
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       final userData = userDoc.data();
-      if (userData == null || userData['isAdmin'] != true) {
+      if (userData == null || userData['role'] != 'admin') {  // isAdmin 대신 role 사용
         throw Exception('관리자 권한이 필요합니다');
       }
 
@@ -105,8 +106,8 @@ class PrizeService {
     DateTime? startDate,
     DateTime? endDate,
     int? maxParticipants,
-    String? status, // 상태 업데이트 추가
-    String? winnerId, // 우승자 ID 업데이트 추가
+    String? status,
+    String? winnerId,
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -115,7 +116,7 @@ class PrizeService {
       // 관리자 권한 체크
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       final userData = userDoc.data();
-      if (userData == null || userData['isAdmin'] != true) {
+      if (userData == null || userData['role'] != 'admin') {  // isAdmin 대신 role 사용
         throw Exception('관리자 권한이 필요합니다');
       }
 
@@ -145,7 +146,7 @@ class PrizeService {
       // 사용자의 광고 시청 횟수 체크
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       final userData = userDoc.data();
-      final currentPoints = userData?['points'] ?? 0;
+      final currentPoints = userData?['coins'] ?? 0;  // points 대신 coins 사용
 
       if (currentPoints < requiredAdViews) {
         throw Exception('포인트가 부족합니다. 광고를 더 시청해주세요.');
@@ -168,7 +169,7 @@ class PrizeService {
 
         // 포인트 차감
         transaction.update(_firestore.collection('users').doc(user.uid), {
-          'points': FieldValue.increment(-requiredAdViews),
+          'coins': FieldValue.increment(-requiredAdViews),  // points 대신 coins 사용
         });
 
         // 참가자 수 증가

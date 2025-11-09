@@ -1,5 +1,3 @@
-// lib/screens/sign_up_screen.dart - 이메일 인증 버전
-
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
@@ -40,7 +38,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     try {
       print('회원가입 시도: ${_emailController.text.trim()}');
 
-      // 🔥 변경: Map<String, dynamic> 반환값 처리
+      // 🔧 단순한 회원가입 (이메일 인증 없음)
       final result = await _authService.signUp(
         _emailController.text.trim(),
         _passwordController.text.trim(),
@@ -50,114 +48,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
       print('회원가입 결과: $result');
 
       if (result['success'] == true && mounted) {
-        // 🔥 이메일 인증 안내 다이얼로그 표시
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            title: Row(
+        // 🎉 간단한 성공 메시지
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
               children: [
-                Icon(Icons.mark_email_read, color: Colors.green, size: 28),
-                SizedBox(width: 10),
-                Text('회원가입 완료'),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '📧 인증 이메일을 발송했습니다!',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                SizedBox(height: 12),
-                Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue[200]!),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _emailController.text.trim(),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue[700],
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        '위 주소로 인증 메일을 보냈습니다',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  '✅ 메일함에서 인증 링크를 클릭해주세요',
-                  style: TextStyle(fontSize: 14),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  '✅ 인증 완료 후 로그인이 가능합니다',
-                  style: TextStyle(fontSize: 14),
-                ),
-                SizedBox(height: 12),
-                Container(
-                  padding: EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.amber[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber[200]!),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.amber[700], size: 18),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '스팸함도 확인해주세요!',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.amber[800],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(result['message'] ?? '회원가입 완료!'),
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop(); // 다이얼로그 닫기
-                  Navigator.of(context).pop(); // 로그인 화면으로
-                },
-                child: Text(
-                  '확인',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
+
+        // 🔧 바로 로그인 화면으로 이동 (AuthWrapper가 자동 처리)
+        Navigator.pop(context);
+
       } else if (mounted) {
-        // 🔥 실패 메시지 표시
+        // ❌ 실패 메시지
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -170,7 +82,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ],
             ),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
+            duration: Duration(seconds: 3),
           ),
         );
       }
@@ -190,7 +102,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ],
             ),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
+            duration: Duration(seconds: 3),
           ),
         );
       }
@@ -205,17 +117,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 기존 UI 코드 그대로 유지
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
-            Icon(Icons.sports_soccer, color: FifaColors.accent),
+            Icon(Icons.sports_soccer, color: Colors.white),
             SizedBox(width: 8),
             Text('회원가입'),
           ],
         ),
-        backgroundColor: FifaColors.primary,
+        backgroundColor: Colors.blue[600],
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
@@ -234,7 +145,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       width: 100,
                       height: 100,
                       decoration: BoxDecoration(
-                        color: FifaColors.primary,
+                        color: Colors.blue[600],
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -245,17 +156,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     SizedBox(height: 16),
                     Text(
-                      'FC 이벤트 알림',
+                      'FC Event',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: FifaColors.primary,
+                        color: Colors.blue[800],
                       ),
                     ),
                     Text(
-                      '회원가입하고 이벤트 소식을 받아보세요!',
+                      '회원가입하고 이벤트에 참여하세요!',
                       style: TextStyle(
-                        color: FifaColors.textSecondary,
+                        color: Colors.grey[600],
                       ),
                     ),
                   ],
@@ -272,9 +183,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: FifaColors.primary, width: 2),
+                    borderSide: BorderSide(color: Colors.blue[600]!, width: 2),
                   ),
-                  prefixIcon: Icon(Icons.person, color: FifaColors.primary),
+                  prefixIcon: Icon(Icons.person, color: Colors.blue[600]),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -288,18 +199,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               SizedBox(height: 16),
 
-              // 이메일 필드
+              // 이메일 필드 (🔧 헬퍼 텍스트 제거)
               TextFormField(
                 controller: _emailController,
                 decoration: InputDecoration(
                   labelText: '이메일',
-                  helperText: '인증 메일이 발송됩니다',  // 🔥 추가
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: FifaColors.primary, width: 2),
+                    borderSide: BorderSide(color: Colors.blue[600]!, width: 2),
                   ),
-                  prefixIcon: Icon(Icons.email, color: FifaColors.primary),
+                  prefixIcon: Icon(Icons.email, color: Colors.blue[600]),
                 ),
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
@@ -322,9 +232,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: FifaColors.primary, width: 2),
+                    borderSide: BorderSide(color: Colors.blue[600]!, width: 2),
                   ),
-                  prefixIcon: Icon(Icons.lock, color: FifaColors.primary),
+                  prefixIcon: Icon(Icons.lock, color: Colors.blue[600]),
                   suffixIcon: IconButton(
                     icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
                     onPressed: () {
@@ -355,9 +265,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: FifaColors.primary, width: 2),
+                    borderSide: BorderSide(color: Colors.blue[600]!, width: 2),
                   ),
-                  prefixIcon: Icon(Icons.lock_outline, color: FifaColors.primary),
+                  prefixIcon: Icon(Icons.lock_outline, color: Colors.blue[600]),
                   suffixIcon: IconButton(
                     icon: Icon(_obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
                     onPressed: () {
@@ -402,7 +312,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: FifaColors.secondary,
+                    backgroundColor: Colors.blue[600],
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -420,7 +330,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   },
                   child: Text(
                     '이미 계정이 있으신가요? 로그인하기',
-                    style: TextStyle(color: FifaColors.primary),
+                    style: TextStyle(color: Colors.blue[600]),
                   ),
                 ),
               ),
