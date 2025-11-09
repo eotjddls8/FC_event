@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.jonglee.pionevent"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.jonglee.pionevent"
