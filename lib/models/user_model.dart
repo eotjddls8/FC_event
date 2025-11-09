@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' show User;
+
 
 class UserModel {
   final String email;
@@ -181,5 +183,27 @@ class UserModel {
     final todayString = '${today.year}-${today.month}-${today.day}';
 
     return (lastAdDate == todayString) ? dailyAdCount : 0;
+  }
+}
+
+
+
+extension UserModelFactories on UserModel {
+  // Firebase User → UserModel 매핑
+  static UserModel fromFirebaseUser(User user) {
+    final nowIso = DateTime.now().toIso8601String();
+    return UserModel(
+      email: user.email ?? '',
+      name: user.displayName ?? (user.email?.split('@').first ?? '사용자'),
+      role: 'user',
+      isEmailVerified: user.emailVerified,
+      deviceFingerprint: null,
+      deviceInfo: null,
+      lastLoginAt: DateTime.now(),
+      loginHistory: [nowIso], // 첫 로그인 기록 1건
+      coins: 0,
+      dailyAdCount: 0,
+      lastAdDate: '',
+    );
   }
 }

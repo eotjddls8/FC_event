@@ -1,13 +1,16 @@
-// lib/services/auth_service.dart - admins 컬렉션 확인 버전
+// lib/services/auth_service.dart - admins 컬렉션 확인 + Google 로그인 + Firestore upsert 완성본
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
 import '../models/user_model.dart';
 import '../services/device_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final GoogleSignIn _google = GoogleSignIn.standard();
   final DeviceService _deviceService = DeviceService();
 
   // 현재 사용자
@@ -16,103 +19,149 @@ class AuthService {
   // 로그인 상태 스트림
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  // ==============================
+  // 내부 유틸
+  // ==============================
+
   // 안전한 디바이스 정보 수집
   Future<Map<String, dynamic>> _getSafeDeviceInfo() async {
     try {
       final deviceFingerprint = await _deviceService.getDeviceFingerprint();
       final deviceInfo = await _deviceService.getDeviceInfo();
-
       return {
         'fingerprint': deviceFingerprint,
-        'info': deviceInfo,
+        'info': deviceInfo, // Map<String, String>
       };
     } catch (e) {
       print('디바이스 정보 수집 실패 (기본값 사용): $e');
       return {
         'fingerprint': 'error_${DateTime.now().millisecondsSinceEpoch}',
-        'info': <String, String>{'platform': 'Unknown', 'error': 'Device info collection failed'},
+        'info': <String, String>{
+          'platform': 'Unknown',
+          'error': 'Device info collection failed'
+        },
       };
     }
   }
 
-  // 🔐 이메일이 관리자 목록에 있는지 확인
+  // 🔐 이메일이 관리자 목록에 있는지 확인 (admins 컬렉션의 문서ID = 이메일, 필드 isAdmin=true)
   Future<bool> _isAdminEmail(String email) async {
     try {
       print('관리자 확인 중: $email');
-
-      final adminDoc = await _firestore
-          .collection('admins')
-          .doc(email.trim())
-          .get();
-
+      final adminDoc =
+      await _firestore.collection('admins').doc(email.trim()).get();
       final isAdmin = adminDoc.exists && adminDoc.data()?['isAdmin'] == true;
       print('관리자 여부: $isAdmin');
-
       return isAdmin;
     } catch (e) {
       print('관리자 확인 실패: $e');
-      return false; // 에러 시 기본값은 일반 사용자
+      return false; // 에러 시 일반 사용자 처리
     }
   }
 
+  // Firestore에 users/{uid} upsert (기본 구조 반영)
+  Future<void> _upsertUserDoc({
+    required String uid,
+    required UserModel model,
+    bool merge = true,
+  }) async {
+    await _firestore
+        .collection('users')
+        .doc(uid)
+        .set(model.toFirestore(), SetOptions(merge: merge));
+  }
+
+  // 로그인 정보 업데이트 (마지막 로그인 시간, 이력, 디바이스 정보)
+  Future<void> _updateLoginInfo(String uid) async {
+    try {
+      final deviceData = await _getSafeDeviceInfo();
+      final now = DateTime.now();
+
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      if (userDoc.exists) {
+        final userData = userDoc.data() as Map<String, dynamic>;
+        final existingHistory = List<String>.from(userData['loginHistory'] ?? []);
+
+        existingHistory.add(now.toIso8601String());
+        if (existingHistory.length > 5) {
+          existingHistory.removeAt(0);
+        }
+
+        // 🔐 role은 업데이트하지 않음 (보안규칙으로 차단/보호)
+        await _firestore.collection('users').doc(uid).update({
+          'deviceFingerprint': deviceData['fingerprint'] as String,
+          'deviceInfo': deviceData['info'] as Map<String, String>,
+          'lastLoginAt': Timestamp.fromDate(now),
+          'loginHistory': existingHistory,
+          'emailVerified': true,
+        });
+
+        print('로그인 정보 업데이트 완료');
+      }
+    } catch (e) {
+      print('로그인 정보 업데이트 실패: $e');
+    }
+  }
+
+  // ==============================
+  // 회원가입 / 이메일 로그인
+  // ==============================
+
   // 🔐 회원가입 (admins 컬렉션 확인)
-  Future<Map<String, dynamic>> signUp(String email, String password, String name) async {
+  Future<Map<String, dynamic>> signUp(
+      String email, String password, String name) async {
     try {
       print('회원가입 시도: $email');
 
-      // 1. 관리자 여부 먼저 확인
+      // 1) 관리자 여부 확인
       final isAdmin = await _isAdminEmail(email);
       final userRole = isAdmin ? 'admin' : 'user';
       print('할당된 역할: $userRole');
 
-      // 2. Firebase 계정 생성
-      UserCredential result = await _auth.createUserWithEmailAndPassword(
+      // 2) Firebase 계정 생성
+      final result = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password.trim(),
       );
 
-      if (result.user != null) {
-        print('Firebase 회원가입 성공: ${result.user!.uid}');
+      final user = result.user;
+      if (user != null) {
+        print('Firebase 회원가입 성공: ${user.uid}');
 
-        // 3. 사용자 이름 설정
-        await result.user!.updateDisplayName(name.trim());
+        // 3) 사용자 이름 설정
+        await user.updateDisplayName(name.trim());
 
-        // 4. 디바이스 정보 수집
+        // 4) 디바이스 정보 수집
         final deviceData = await _getSafeDeviceInfo();
 
-        // 5. Firestore에 사용자 정보 저장
+        // 5) Firestore에 사용자 정보 저장
         final userData = {
           'email': email.trim(),
           'name': name.trim(),
-          'role': userRole, // 🔐 admins 컬렉션 확인 결과로 설정
+          'role': userRole, // admins 컬렉션 확인 결과
           'emailVerified': true,
           'deviceFingerprint': deviceData['fingerprint'],
           'deviceInfo': deviceData['info'],
           'lastLoginAt': Timestamp.now(),
           'loginHistory': [DateTime.now().toIso8601String()],
+          // 코인 시스템 기본값
           'coins': 0,
           'dailyAdCount': 0,
           'lastAdDate': '',
           'createdAt': Timestamp.now(),
         };
 
-        // 🔐 Security Rules가 role을 검증함
-        await _firestore
-            .collection('users')
-            .doc(result.user!.uid)
-            .set(userData);
-
+        await _firestore.collection('users').doc(user.uid).set(userData);
         print('Firestore 저장 완료 - role: $userRole');
 
-        // 6. 사용자 데이터 가져오기
-        UserModel? user = await getUserData(result.user!.uid);
+        // 6) 사용자 데이터 가져오기
+        final userModel = await getUserData(user.uid);
 
         return {
           'success': true,
-          'message': isAdmin
-              ? '관리자로 회원가입이 완료되었습니다! 🎉'
-              : '회원가입이 완료되었습니다!',
-          'user': user,
+          'message':
+          isAdmin ? '관리자로 회원가입이 완료되었습니다! 🎉' : '회원가입이 완료되었습니다!',
+          'user': userModel,
         };
       }
 
@@ -120,13 +169,12 @@ class AuthService {
         'success': false,
         'message': '회원가입 실패',
       };
-
     } on FirebaseAuthException catch (e) {
       print('Firebase Auth 에러: ${e.code} - ${e.message}');
       String errorMessage;
       switch (e.code) {
         case 'weak-password':
-          errorMessage = '비밀번호가 너무 약습니다. (최소 6자 이상)';
+          errorMessage = '비밀번호가 너무 약합니다. (최소 6자 이상)';
           break;
         case 'email-already-in-use':
           errorMessage = '이미 사용 중인 이메일입니다.';
@@ -137,12 +185,10 @@ class AuthService {
         default:
           errorMessage = '회원가입 중 오류가 발생했습니다: ${e.message}';
       }
-
       return {
         'success': false,
         'message': errorMessage,
       };
-
     } catch (e) {
       print('일반 에러: $e');
       return {
@@ -152,25 +198,26 @@ class AuthService {
     }
   }
 
-  // 🔐 로그인
+  // 🔐 이메일 로그인
   Future<Map<String, dynamic>> signIn(String email, String password) async {
     try {
       print('로그인 시도: $email');
 
-      // 1. 로그인 시도
-      UserCredential result = await _auth.signInWithEmailAndPassword(
+      // 1) 로그인 시도
+      final result = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password.trim(),
       );
+      final user = result.user;
 
-      if (result.user != null) {
-        print('Firebase 로그인 성공: ${result.user!.uid}');
+      if (user != null) {
+        print('Firebase 로그인 성공: ${user.uid}');
 
-        // 2. 로그인 정보 업데이트
-        await _updateLoginInfo(result.user!.uid);
+        // 2) 로그인 정보 업데이트
+        await _updateLoginInfo(user.uid);
 
-        // 3. Firestore에서 사용자 데이터 가져오기
-        UserModel? userData = await getUserData(result.user!.uid);
+        // 3) Firestore에서 사용자 데이터 가져오기
+        final userData = await getUserData(user.uid);
 
         if (userData != null) {
           print('로그인 완료 - role: ${userData.role}');
@@ -187,7 +234,6 @@ class AuthService {
         'success': false,
         'message': '로그인 실패',
       };
-
     } on FirebaseAuthException catch (e) {
       print('Firebase Auth 에러: ${e.code} - ${e.message}');
       String errorMessage;
@@ -207,12 +253,10 @@ class AuthService {
         default:
           errorMessage = '로그인 중 오류가 발생했습니다: ${e.message}';
       }
-
       return {
         'success': false,
         'message': errorMessage,
       };
-
     } catch (e) {
       print('일반 에러: $e');
       return {
@@ -222,41 +266,82 @@ class AuthService {
     }
   }
 
-  // 로그인 정보 업데이트
-  Future<void> _updateLoginInfo(String uid) async {
-    try {
-      final deviceData = await _getSafeDeviceInfo();
-      final now = DateTime.now();
+  // ==============================
+  // Google 로그인 (UI에서 UserModel로 바로 사용)
+  // ==============================
 
-      final userDoc = await _firestore.collection('users').doc(uid).get();
-
-      if (userDoc.exists) {
-        final userData = userDoc.data() as Map<String, dynamic>;
-        final existingHistory = List<String>.from(userData['loginHistory'] ?? []);
-
-        existingHistory.add(now.toIso8601String());
-        if (existingHistory.length > 5) {
-          existingHistory.removeAt(0);
-        }
-
-        // 🔐 role은 업데이트하지 않음 (Security Rules로 차단됨)
-        await _firestore.collection('users').doc(uid).update({
-          'deviceFingerprint': deviceData['fingerprint'] as String,
-          'deviceInfo': deviceData['info'] as Map<String, String>,
-          'lastLoginAt': Timestamp.fromDate(now),
-          'loginHistory': existingHistory,
-          'emailVerified': true,
-        });
-
-        print('로그인 정보 업데이트 완료');
-      }
-    } catch (e) {
-      print('로그인 정보 업데이트 실패: $e');
+  /// Google 계정으로 로그인 → admins 컬렉션 확인 → Firestore upsert → UserModel 반환
+  Future<UserModel> signInWithGoogle() async {
+    // 1) 구글 계정 선택
+    final GoogleSignInAccount? googleUser = await _google.signIn();
+    if (googleUser == null) {
+      throw Exception('사용자가 구글 로그인을 취소했습니다.');
     }
+
+    // 2) 구글 인증 토큰 획득
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      //accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    // 3) Firebase 인증
+    final cred = await _auth.signInWithCredential(credential);
+    final user = cred.user;
+    if (user == null) {
+      throw Exception('로그인에 실패했습니다. 다시 시도해주세요.');
+    }
+
+    // 4) admins 컬렉션으로 role 판단
+    final email = user.email ?? '';
+    final isAdmin = await _isAdminEmail(email);
+    final role = isAdmin ? 'admin' : 'user';
+
+    // 5) 디바이스 정보 수집
+    final deviceData = await _getSafeDeviceInfo();
+
+    // 6) Firebase User → UserModel (기본값 생성)
+    //    (fromFirebaseUser 팩토리 + role/디바이스/로그인시간 반영)
+    final base = UserModelFactories.fromFirebaseUser(user);
+    final nowIso = DateTime.now().toIso8601String();
+
+    final model = UserModel(
+      email: base.email,
+      name: base.name,
+      role: role,
+      isEmailVerified: base.isEmailVerified,
+      deviceFingerprint: deviceData['fingerprint'] as String,
+      deviceInfo: deviceData['info'] as Map<String, String>,
+      lastLoginAt: DateTime.now(),
+      loginHistory: [nowIso],
+      coins: base.coins,
+      dailyAdCount: base.dailyAdCount,
+      lastAdDate: base.lastAdDate,
+    );
+
+    // 7) Firestore upsert (users/{uid})
+    await _upsertUserDoc(uid: user.uid, model: model, merge: true);
+
+    // 8) 이후 로그인 정보 누적 업데이트(이력 5개 유지) - 기존 문서가 있으면 추가 업데이트
+    await _updateLoginInfo(user.uid);
+
+    // 9) 최종 최신 데이터 재획득
+    final fresh = await getUserData(user.uid);
+    return fresh ?? model;
   }
 
-  // 로그아웃
+  // ==============================
+  // 공용: 로그아웃 / 유저 로드
+  // ==============================
+
+  // 로그아웃 (구글/파이어베이스 모두 정리)
   Future<void> signOut() async {
+    try {
+      // 구글 세션 정리 (구글로 로그인하지 않았더라도 안전)
+      await _google.signOut();
+    } catch (_) {
+      // ignore
+    }
     try {
       await _auth.signOut();
       print('로그아웃 성공');
@@ -265,38 +350,41 @@ class AuthService {
     }
   }
 
-  // 사용자 데이터 가져오기
+  // 사용자 데이터 가져오기 (users/{uid})
   Future<UserModel?> getUserData(String uid) async {
     try {
       print('사용자 데이터 가져오기: $uid');
 
-      DocumentSnapshot doc = await _firestore
-          .collection('users')
-          .doc(uid)
-          .get();
+      final doc = await _firestore.collection('users').doc(uid).get();
 
       if (doc.exists && doc.data() != null) {
         print('Firestore 데이터 로드 성공');
         return UserModel.fromFirestore(doc);
       } else {
-        print('Firestore에 사용자 데이터 없음, 기본값 생성');
-        final currentUser = _auth.currentUser;
-        if (currentUser != null) {
-          // 🔐 기본값 생성 시에도 admins 컬렉션 확인
-          final isAdmin = await _isAdminEmail(currentUser.email ?? '');
-          final userRole = isAdmin ? 'admin' : 'user';
+        print('Firestore에 사용자 데이터 없음, 기본값 생성 시도');
+        final current = _auth.currentUser;
+        if (current != null) {
+          // admins 확인
+          final isAdmin = await _isAdminEmail(current.email ?? '');
+          final role = isAdmin ? 'admin' : 'user';
 
           final deviceData = await _getSafeDeviceInfo();
 
           final defaultUser = UserModel(
-            email: currentUser.email ?? '',
-            name: currentUser.displayName ?? currentUser.email?.split('@')[0] ?? '사용자',
-            role: userRole, // 🔐 admins 컬렉션 확인 결과로 설정
+            email: current.email ?? '',
+            name: current.displayName ??
+                current.email?.split('@').first ??
+                '사용자',
+            role: role,
             deviceFingerprint: deviceData['fingerprint'] as String,
             deviceInfo: deviceData['info'] as Map<String, String>,
             lastLoginAt: DateTime.now(),
             loginHistory: [DateTime.now().toIso8601String()],
             isEmailVerified: true,
+            // 코인 시스템 기본값 유지
+            coins: 0,
+            dailyAdCount: 0,
+            lastAdDate: '',
           );
 
           try {

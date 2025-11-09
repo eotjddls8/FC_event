@@ -1,4 +1,4 @@
-// lib/screens/login_screen.dart - 이메일 인증 제거 버전
+// lib/screens/login_screen.dart - 이메일 인증 제거 + 오류 메시지 수정 버전
 
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
@@ -7,6 +7,7 @@ import '../theme/fifa_theme.dart';
 import 'event_list_screen.dart';
 import 'signup_screen.dart';
 import 'main_navigation_screen.dart';
+import '../widgets/google_sign_in_button.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -26,6 +27,16 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _showLoginError() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('로그인 정보가 올바르지 않습니다.'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   Future<void> _signIn() async {
@@ -54,26 +65,13 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           );
         }
-      } else if (mounted) {
-        // 로그인 실패
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? '로그인에 실패했습니다'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      } else {
+        _showLoginError();
       }
 
     } catch (e) {
       print('로그인 에러: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('로그인 중 오류가 발생했습니다'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      _showLoginError();
     } finally {
       if (mounted) {
         setState(() {
@@ -251,6 +249,51 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
+
+
+              ///구글 계정 로그인
+              GoogleSignInButton(
+                  isLoading: _isLoading,
+                  onPressed: () async {
+                    if (_isLoading) return;
+                    setState(() => _isLoading = true);
+
+                    try {
+                      // 1) Google 계정 선택 → Firebase 로그인 → 완성된 UserModel 반환
+                      // 💡 NOTE: cred는 이제 완성된 UserModel 객체입니다.
+                      final UserModel userModel = await _authService.signInWithGoogle();
+
+                      // 2) 로그인 성공 시 메인으로 이동
+                      if (userModel != null && mounted) {
+
+                        // 💡 완성된 userModel 객체를 그대로 전달합니다.
+                        // UserModel을 새로 생성하지 않아도 됩니다. (필수 필드 role 누락 방지)
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            // userModel을 MainNavigationScreen의 currentUser에 전달
+                            builder: (context) => MainNavigationScreen(currentUser: userModel),
+                          ),
+                        );
+                      } else {
+                        // userModel이 null인 경우 (예: 로그인 취소/실패)
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('로그인에 실패했습니다. 다시 시도해주세요.')),
+                        );
+                      }
+                    } catch (e) {
+                      if (!mounted) return;
+                      // AuthService에서 던진 Exception 메시지를 사용자에게 보여줍니다.
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Google 로그인 오류: ${e.toString()}')),
+                      );
+                    } finally {
+                      if (mounted) setState(() => _isLoading = false);
+                    }
+                  }
+              ),
+
 
               SizedBox(height: 24),
 
