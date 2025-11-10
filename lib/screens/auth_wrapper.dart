@@ -59,7 +59,7 @@ class AuthWrapper extends StatelessWidget {
           );
         } else {
           // 🔧 로그인 안됨 - 로그인 화면 표시
-          return LoginScreen();
+          return MainNavigationScreen();
         }
       },
     );

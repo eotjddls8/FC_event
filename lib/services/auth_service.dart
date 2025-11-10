@@ -10,7 +10,8 @@ import '../services/device_service.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final GoogleSignIn _google = GoogleSignIn.standard();
+  //final GoogleSignIn _google = GoogleSignIn.standard();
+  final GoogleSignIn _google = GoogleSignIn();
   final DeviceService _deviceService = DeviceService();
 
   // 현재 사용자
@@ -272,62 +273,100 @@ class AuthService {
 
   /// Google 계정으로 로그인 → admins 컬렉션 확인 → Firestore upsert → UserModel 반환
   Future<UserModel> signInWithGoogle() async {
-    // 1) 구글 계정 선택
+    // 1) ~ 3) Firebase 인증까지 기존과 동일
     final GoogleSignInAccount? googleUser = await _google.signIn();
     if (googleUser == null) {
       throw Exception('사용자가 구글 로그인을 취소했습니다.');
     }
-
-    // 2) 구글 인증 토큰 획득
     final googleAuth = await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
       accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
-
-    // 3) Firebase 인증
     final cred = await _auth.signInWithCredential(credential);
     final user = cred.user;
     if (user == null) {
       throw Exception('로그인에 실패했습니다. 다시 시도해주세요.');
     }
 
-    // 4) admins 컬렉션으로 role 판단
+    // 4) 기존 사용자 문서 로드 시도
+    UserModel? existingModel = await getUserData(user.uid);
+
+    // 5) admins 컬렉션으로 role 판단 (최초 생성 시 또는 문서 없을 때 사용)
     final email = user.email ?? '';
-    final isAdmin = await _isAdminEmail(email);
-    final role = isAdmin ? 'admin' : 'user';
+    final isAdminFromAdmins = await _isAdminEmail(email);
 
-    // 5) 디바이스 정보 수집
+    // 6) 디바이스 정보 수집
     final deviceData = await _getSafeDeviceInfo();
+    final now = DateTime.now();
+    final nowIso = now.toIso8601String();
 
-    // 6) Firebase User → UserModel (기본값 생성)
-    //    (fromFirebaseUser 팩토리 + role/디바이스/로그인시간 반영)
-    final base = UserModelFactories.fromFirebaseUser(user);
-    final nowIso = DateTime.now().toIso8601String();
+    // 7) 최종 Firestore에 저장할 데이터 Map 생성
+    Map<String, dynamic> updateData = {};
 
-    final model = UserModel(
-      email: base.email,
-      name: base.name,
-      role: role,
-      isEmailVerified: base.isEmailVerified,
-      deviceFingerprint: deviceData['fingerprint'] as String,
-      deviceInfo: deviceData['info'] as Map<String, String>,
-      lastLoginAt: DateTime.now(),
-      loginHistory: [nowIso],
-      coins: base.coins,
-      dailyAdCount: base.dailyAdCount,
-      lastAdDate: base.lastAdDate,
-    );
+    if (existingModel == null) {
+      // 7-A) 💡 최초 로그인: 문서가 없으므로 모든 필드를 'set' (role/isAdmin 기본값은 여기서 결정)
+      print('Google 로그인: Firestore에 새 사용자 문서 생성');
 
-    // 7) Firestore upsert (users/{uid})
-    await _upsertUserDoc(uid: user.uid, model: model, merge: true);
+      // (getUserData 내부에서 생성된 defaultUser와 동일한 로직)
+      final role = isAdminFromAdmins ? 'admin' : 'user';
 
-    // 8) 이후 로그인 정보 누적 업데이트(이력 5개 유지) - 기존 문서가 있으면 추가 업데이트
-    await _updateLoginInfo(user.uid);
+      updateData = UserModel(
+        email: email,
+        name: user.displayName ?? email.split('@').first,
+        role: role,
+        isEmailVerified: true,
+        deviceFingerprint: deviceData['fingerprint'] as String,
+        deviceInfo: deviceData['info'] as Map<String, String>,
+        lastLoginAt: now,
+        loginHistory: [nowIso],
+        coins: 0,
+        dailyAdCount: 0,
+        lastAdDate: '',
+        createdAt: now,
+      ).toFirestore();
 
-    // 9) 최종 최신 데이터 재획득
-    final fresh = await getUserData(user.uid);
-    return fresh ?? model;
+      // 'set' 명령을 사용하여 새로운 문서를 생성
+      await _firestore.collection('users').doc(user.uid).set(updateData);
+
+      // 생성된 모델을 반환
+      return UserModel.fromMap(updateData);
+
+    } else {
+      // 7-B) 💡 재로그인: 기존 사용자 문서 업데이트
+      print('Google 로그인: 기존 사용자 문서 업데이트');
+
+      // _updateLoginInfo와 동일한 로직을 사용하여 history 업데이트
+      // 🚨 [수정됨] existingModel.loginHistory가 null일 경우 빈 리스트를 사용하도록 처리
+      final existingHistory = List<String>.from(existingModel!.loginHistory ?? []);
+      existingHistory.add(nowIso);
+      if (existingHistory.length > 5) {
+        existingHistory.removeAt(0);
+      }
+
+      updateData = {
+        'deviceFingerprint': deviceData['fingerprint'] as String,
+        'deviceInfo': deviceData['info'] as Map<String, String>,
+        'lastLoginAt': Timestamp.fromDate(now),
+        'loginHistory': existingHistory,
+        'emailVerified': true,
+        // 🚨 role, isAdmin, name, coins 등은 절대로 여기에 포함하지 않습니다.
+      };
+
+      await _firestore.collection('users').doc(user.uid).update(updateData);
+
+      // 업데이트된 정보를 기존 모델에 반영
+      // (role/isAdmin은 유지되고, 나머지 필드가 업데이트됩니다.)
+      existingModel = existingModel.copyWith(
+        deviceFingerprint: deviceData['fingerprint'] as String,
+        deviceInfo: deviceData['info'] as Map<String, String>,
+        lastLoginAt: now,
+        loginHistory: existingHistory,
+        isEmailVerified: true,
+      );
+
+      return existingModel;
+    }
   }
 
   // ==============================

@@ -28,7 +28,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _language = '한국어';
 
   // 문의용 정보
-  final String _supportEmail = 'contact.infinitelink@gmail.com';
+  final String _supportEmail = 'contact@infinite-link.com';
 
 
   // 🎯 앱 평가하기 함수
