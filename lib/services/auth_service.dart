@@ -281,7 +281,7 @@ class AuthService {
     // 2) 구글 인증 토큰 획득
     final googleAuth = await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
-      //accessToken: googleAuth.accessToken,
+      accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
 
