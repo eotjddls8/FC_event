@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")      // ← 최신 권장 플러그인 id
@@ -25,8 +27,24 @@ android {
 
     signingConfigs {
         create("release") {
-            // 운영 전 key/password는 외부 파일/환경변수로 분리 권장
-            storeFile = file("../../upload-keystore.jks")
+            val keystoreFile = file("${rootDir.parentFile.absolutePath}/key.properties")
+            val keystore = Properties()
+            if (keystoreFile.exists()) {
+                keystoreFile.inputStream().use { keystore.load(it) }
+                println("✓ key.properties loaded successfully")
+            } else {
+                println("✗ key.properties not found at: ${keystoreFile.absolutePath}")
+            }
+
+            val storeFileValue = keystore.getProperty("storeFile", "../../upload-keystore.jks")
+            val storePasswordValue = keystore.getProperty("storePassword")
+            val keyAliasValue = keystore.getProperty("keyAlias")
+            val keyPasswordValue = keystore.getProperty("keyPassword")
+
+            storeFile = file(storeFileValue)
+            storePassword = storePasswordValue
+            keyAlias = keyAliasValue
+            keyPassword = keyPasswordValue
         }
     }
 
