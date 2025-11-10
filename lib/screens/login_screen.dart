@@ -15,6 +15,9 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  // 이메일/비밀번호 로그인 활성화 여부
+  static const bool _enableEmailPasswordLogin = false;
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -155,100 +158,105 @@ class _LoginScreenState extends State<LoginScreen> {
 
               SizedBox(height: 40),
 
-              // 이메일 입력
-              TextFormField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: '이메일',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: FifaColors.primary, width: 2),
-                  ),
-                  prefixIcon: Icon(Icons.email, color: FifaColors.primary),
-                ),
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return '이메일을 입력해주세요';
-                  }
-                  if (!value.contains('@')) {
-                    return '올바른 이메일 형식이 아닙니다';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
-
-              // 비밀번호 입력
-              TextFormField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: '비밀번호',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: FifaColors.primary, width: 2),
-                  ),
-                  prefixIcon: Icon(Icons.lock, color: FifaColors.primary),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                      color: FifaColors.primary,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                  ),
-                ),
-                obscureText: _obscurePassword,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return '비밀번호를 입력해주세요';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 24),
-
-              // 로그인 버튼
-              Container(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _signIn,
-                  icon: _isLoading
-                      ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                      : Icon(Icons.login, color: Colors.white),
-                  label: Text(
-                    _isLoading ? '로그인 중...' : '로그인',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: FifaColors.primary,
-                    shape: RoundedRectangleBorder(
+              // 이메일 입력 (활성화 여부에 따라 표시)
+              if (_enableEmailPasswordLogin)
+                TextFormField(
+                  controller: _emailController,
+                  decoration: InputDecoration(
+                    labelText: '이메일',
+                    border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: FifaColors.primary, width: 2),
+                    ),
+                    prefixIcon: Icon(Icons.email, color: FifaColors.primary),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return '이메일을 입력해주세요';
+                    }
+                    if (!value.contains('@')) {
+                      return '올바른 이메일 형식이 아닙니다';
+                    }
+                    return null;
+                  },
+                ),
+              if (_enableEmailPasswordLogin)
+                SizedBox(height: 16),
+
+              // 비밀번호 입력 (활성화 여부에 따라 표시)
+              if (_enableEmailPasswordLogin)
+                TextFormField(
+                  controller: _passwordController,
+                  decoration: InputDecoration(
+                    labelText: '비밀번호',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: FifaColors.primary, width: 2),
+                    ),
+                    prefixIcon: Icon(Icons.lock, color: FifaColors.primary),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                        color: FifaColors.primary,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
+                  ),
+                  obscureText: _obscurePassword,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return '비밀번호를 입력해주세요';
+                    }
+                    return null;
+                  },
+                ),
+              if (_enableEmailPasswordLogin)
+                SizedBox(height: 24),
+
+              // 로그인 버튼 (활성화 여부에 따라 표시)
+              if (_enableEmailPasswordLogin)
+                Container(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _signIn,
+                    icon: _isLoading
+                        ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                        : Icon(Icons.login, color: Colors.white),
+                    label: Text(
+                      _isLoading ? '로그인 중...' : '로그인',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: FifaColors.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
                 ),
-              ),
 
 
               ///구글 계정 로그인
@@ -295,35 +303,37 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
 
 
-              SizedBox(height: 24),
+              if (_enableEmailPasswordLogin)
+                SizedBox(height: 24),
 
-              // 회원가입 버튼
-              Container(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => SignUpScreen()),
-                    );
-                  },
-                  icon: Icon(Icons.person_add, color: FifaColors.secondary),
-                  label: Text(
-                    '새 계정 만들기',
-                    style: TextStyle(
-                      color: FifaColors.secondary,
-                      fontWeight: FontWeight.bold,
+              // 회원가입 버튼 (활성화 여부에 따라 표시)
+              if (_enableEmailPasswordLogin)
+                Container(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => SignUpScreen()),
+                      );
+                    },
+                    icon: Icon(Icons.person_add, color: FifaColors.secondary),
+                    label: Text(
+                      '새 계정 만들기',
+                      style: TextStyle(
+                        color: FifaColors.secondary,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    side: BorderSide(color: FifaColors.secondary, width: 2),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      side: BorderSide(color: FifaColors.secondary, width: 2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
