@@ -39,7 +39,8 @@ class PrizeService {
     required PrizeTier tier,
     required DateTime startDate,
     required DateTime endDate,
-    required int maxParticipants,
+    //required int maxParticipants,
+    required int requiredCoins,
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -61,7 +62,8 @@ class PrizeService {
         'tier': tier.name,
         'startDate': Timestamp.fromDate(startDate),
         'endDate': Timestamp.fromDate(endDate),
-        'maxParticipants': maxParticipants,
+        //'maxParticipants': maxParticipants,
+        'requiredCoins': requiredCoins,
         'currentParticipants': 0,
         'status': 'active', // 기본 상태
         'createdBy': user.uid,
@@ -105,7 +107,8 @@ class PrizeService {
     PrizeTier? tier,
     DateTime? startDate,
     DateTime? endDate,
-    int? maxParticipants,
+    //int? maxParticipants,
+    int? requiredCoins,
     String? status,
     String? winnerId,
   }) async {
@@ -127,9 +130,12 @@ class PrizeService {
       if (tier != null) updateData['tier'] = tier.name;
       if (startDate != null) updateData['startDate'] = Timestamp.fromDate(startDate);
       if (endDate != null) updateData['endDate'] = Timestamp.fromDate(endDate);
-      if (maxParticipants != null) updateData['maxParticipants'] = maxParticipants;
+     //if (maxParticipants != null) updateData['maxParticipants'] = maxParticipants;
+      if (requiredCoins != null) updateData['requiredCoins'] = requiredCoins;
       if (status != null) updateData['status'] = status;
       if (winnerId != null) updateData['winnerId'] = winnerId;
+
+      updateData['updatedAt'] = FieldValue.serverTimestamp(); // 수정 시간 기록
 
       await _firestore.collection(_prizesCollection).doc(prizeId).update(updateData);
     } catch (e) {
@@ -207,4 +213,24 @@ class PrizeService {
       return false;
     }
   }
+
+  // 특정 상품에 대한 사용자의 총 응모 횟수를 가져옵니다.
+  static Future<int> getUserEntryCount(String prizeId, String userId) async {
+    try {
+      // ⭐ 변경: 'prize_entries' 컬렉션 대신 'prizes/{prizeId}/participants' 서브컬렉션 조회
+      final querySnapshot = await _firestore
+          .collection('prizes')
+          .doc(prizeId)
+          .collection('participants') // ⭐ 서브컬렉션 지정
+          .where('userId', isEqualTo: userId) // ⭐ userId로 필터링
+          .count() // Firestore SDK의 count() 기능을 사용합니다.
+          .get();
+
+      return querySnapshot.count ?? 0;
+    } catch (e) {
+      print('❌ 사용자 응모 횟수 가져오기 실패: $e');
+      return 0;
+    }
+  }
+
 }

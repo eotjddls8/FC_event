@@ -1,3 +1,5 @@
+// prize_model.dart (전체 수정된 코드)
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PrizeModel {
@@ -8,8 +10,9 @@ class PrizeModel {
   final PrizeTier tier;
   final DateTime startDate;
   final DateTime endDate;
-  final int maxParticipants;
+  //final int maxParticipants;
   final int currentParticipants;
+  final int requiredCoins; // ⭐ 1. 필드 추가
   final PrizeStatus status;
   final String createdBy; // 관리자 ID
   final DateTime createdAt;
@@ -24,8 +27,9 @@ class PrizeModel {
     required this.tier,
     required this.startDate,
     required this.endDate,
-    required this.maxParticipants,
+    //required this.maxParticipants,
     required this.currentParticipants,
+    required this.requiredCoins, // ⭐ 2. 생성자에 추가
     required this.status,
     required this.createdBy,
     required this.createdAt,
@@ -46,8 +50,9 @@ class PrizeModel {
       ),
       startDate: (data['startDate'] as Timestamp).toDate(),
       endDate: (data['endDate'] as Timestamp).toDate(),
-      maxParticipants: data['maxParticipants'] ?? 0,
+      //maxParticipants: data['maxParticipants'] ?? 0,
       currentParticipants: data['currentParticipants'] ?? 0,
+      requiredCoins: (data['requiredCoins'] ?? 0).toInt(), // ⭐ 3. fromFirestore에 추가 (기본값 0)
       status: PrizeStatus.values.firstWhere(
             (status) => status.name == data['status'],
         orElse: () => PrizeStatus.upcoming,
@@ -70,11 +75,12 @@ class PrizeModel {
       'tier': tier.name,
       'startDate': Timestamp.fromDate(startDate),
       'endDate': Timestamp.fromDate(endDate),
-      'maxParticipants': maxParticipants,
+      //'maxParticipants': maxParticipants,
       'currentParticipants': currentParticipants,
+      'requiredCoins': requiredCoins, // ⭐ 4. toFirestore에 추가
       'status': status.name,
       'createdBy': createdBy,
-      'createdAt': Timestamp.fromDate(createdAt),
+      'createdAt': Timestamp.fromDate(createdAt), // 참고: 생성 시에는 FieldValue.serverTimestamp() 사용
       'winnerId': winnerId,
       'winnerSelectedAt': winnerSelectedAt != null
           ? Timestamp.fromDate(winnerSelectedAt!)
@@ -89,10 +95,10 @@ class PrizeModel {
     if (now.isBefore(startDate)) {
       return PrizeStatus.upcoming;
     } else if (now.isAfter(endDate)) {
-      if (winnerId != null) {
+      if (winnerId != null && winnerId!.isNotEmpty) { // ⭐ null이 아니고 비어있지 않은지 확인
         return PrizeStatus.completed;
       }
-      return PrizeStatus.expired;
+      return PrizeStatus.expired; // 당첨자가 없으면 '만료됨'
     } else {
       return PrizeStatus.active;
     }
@@ -101,12 +107,12 @@ class PrizeModel {
   // 추첨 가능한지 체크
   bool canParticipate() {
     final status = getCurrentStatus();
-    return status == PrizeStatus.active &&
-        currentParticipants < maxParticipants;
+    return status == PrizeStatus.active;
+        //currentParticipants < maxParticipants;
   }
 
-  // 필요한 광고 시청 횟수
-  int get requiredAdViews => tier.requiredAdViews;
+  // 필요한 코인 (이제 모델에 필드가 있으므로 getter 불필요)
+  // int get requiredAdViews => tier.requiredAdViews; // 이 줄은 requiredCoins 필드로 대체됨
 
   // 상품 가치 (원)
   String get valueDisplay => tier.valueDisplay;
@@ -121,7 +127,7 @@ enum PrizeTier {
 
   const PrizeTier(this.requiredAdViews, this.valueDisplay, this.emoji);
 
-  final int requiredAdViews;
+  final int requiredAdViews; // 이 값은 이제 참고용 (requiredCoins가 메인)
   final String valueDisplay;
   final String emoji;
 }
@@ -130,7 +136,7 @@ enum PrizeTier {
 enum PrizeStatus {
   upcoming('시작 전'),
   active('진행 중'),
-  expired('만료됨'),
+  expired('만료됨'), // '추첨 전' 또는 '마감됨'
   completed('추첨 완료');
 
   const PrizeStatus(this.displayName);

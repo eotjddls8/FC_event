@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../theme/fifa_theme.dart';
 import 'event_list_screen.dart';
-//import 'board_list_screen.dart';
-import 'prize_list_screen.dart';
 import 'ad_reward_screen.dart';
 import 'settings_screen.dart';
 
@@ -31,8 +29,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     // 🎯 개선된 스크린 사용
     _screens = [
       EventListScreen(currentUser: widget.currentUser),  // 개선된 이벤트 리스트
-      //BoardListScreen(currentUser: widget.currentUser),
-      PrizeListScreen(currentUser: widget.currentUser),
       AdRewardScreen(currentUser: widget.currentUser),
       SettingsScreen(currentUser: widget.currentUser),
     ];
@@ -90,18 +86,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 label: '이벤트',
               ),
 
-              BottomNavigationBarItem(
-                icon: Icon(Icons.card_giftcard_outlined, size: 22),
-                activeIcon: Container(
-                  padding: EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: FifaColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.card_giftcard, size: 22),
-                ),
-                label: '경품',
-              ),
+
               BottomNavigationBarItem(
                 icon: Icon(Icons.monetization_on_outlined, size: 22),
                 activeIcon: Container(
@@ -110,9 +95,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                     color: FifaColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.monetization_on, size: 22),
+                  child: Icon(Icons.card_giftcard, size: 22),
                 ),
-                label: '코인',
+                label: '추첨이벤트',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.settings_outlined, size: 22),
