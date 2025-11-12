@@ -16,6 +16,9 @@ import 'admin_prize_management_screen.dart';
 import '../services/admob_service.dart';
 import '../services/fraud_prevention_service.dart';
 import '../utils/device_info_helper.dart';
+import '../services/time_validation_service.dart';
+import '../services/coin_service.dart';
+import '../services/lottery_participation_service.dart';
 
 class AdRewardScreen extends StatefulWidget {
   final UserModel? currentUser;
@@ -44,7 +47,7 @@ class _AdRewardScreenState extends State<AdRewardScreen>
   // 사용자 데이터
   int _userCoins = 0;
   int _todayAdsWatched = 0;
-  int _maxDailyAds = 20; // 🎯 20회로 증가
+  int _maxDailyAds = 10; // 🎯 10회로 증가
   bool _isLoading = true;
   bool _isProcessing = false;
   String _userId = '';
@@ -189,12 +192,12 @@ class _AdRewardScreenState extends State<AdRewardScreen>
         _isLoading = true;
       });
 
-      final serverTime = await _getServerTime();
+      final serverTime = await TimeValidationService.getServerTime();
       final userDoc = await _firestore.collection('users').doc(_userId).get();
 
       if (userDoc.exists) {
         final userData = userDoc.data()!;
-        final serverDateString = _formatDate(serverTime);
+        final serverDateString = TimeValidationService.formatDate(serverTime);
 
         setState(() {
           _userCoins = (userData['coins'] ?? 0).toInt();
@@ -222,54 +225,37 @@ class _AdRewardScreenState extends State<AdRewardScreen>
     }
   }
 
-  Future<DateTime> _getServerTime() async {
+  Future<void> _createUserDocument() async {
     try {
-      final tempDocRef = _firestore.collection('temp').doc();
-      await tempDocRef.set({
-        'timestamp': FieldValue.serverTimestamp(),
-        'purpose': 'time_validation',
+      final serverTime = await TimeValidationService.getServerTime();
+      final todayString = TimeValidationService.formatDate(serverTime);
+
+      await _firestore.collection('users').doc(_userId).set({
+        'name': widget.currentUser?.name ?? 'Anonymous',
+        'email': widget.currentUser?.email ?? '',
+        'isAdmin': widget.currentUser?.isAdmin ?? false,
+        'coins': 0,
+        'dailyAdCount': 0,
+        'lastAdDate': todayString,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        // 🎯 추가 통계 필드들
+        'totalCoinsEarned': 0,
+        'totalAdsWatched': 0,
+        'consecutiveDays': 1,
+        'lastLoginDate': todayString,
+      }, SetOptions(merge: true));
+
+      setState(() {
+        _userCoins = 0;
+        _todayAdsWatched = 0;
+        _isLoading = false;
       });
-
-      final docSnapshot = await tempDocRef.get();
-      final timestamp = docSnapshot.data()!['timestamp'] as Timestamp;
-      await tempDocRef.delete();
-
-      return timestamp.toDate();
     } catch (e) {
-      print('서버 시간 획득 실패: $e');
-      return DateTime.now();
-    }
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
-
-  Future<bool> _validateTime() async {
-    try {
-      final serverTime = await _getServerTime();
-      final clientTime = DateTime.now();
-      final timeDifference = serverTime.difference(clientTime).abs();
-
-      if (timeDifference.inMinutes > 5) {
-        _showSecurityDialog(
-          '시간 동기화 필요',
-          '정확한 보상을 위해 기기 시간을 자동 설정으로 변경해주세요.',
-          Icons.schedule,
-          Colors.orange,
-        );
-        return false;
-      }
-
-      return true;
-    } catch (e) {
-      _showSecurityDialog(
-        '시간 검증 실패',
-        '네트워크 상태를 확인하고 다시 시도해주세요.',
-        Icons.wifi_off,
-        Colors.red,
-      );
-      return false;
+      print('Error creating user document: $e');
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -323,40 +309,7 @@ class _AdRewardScreenState extends State<AdRewardScreen>
     );
   }
 
-  Future<void> _createUserDocument() async {
-    try {
-      final serverTime = await _getServerTime();
-      final todayString = _formatDate(serverTime);
-
-      await _firestore.collection('users').doc(_userId).set({
-        'name': widget.currentUser?.name ?? 'Anonymous',
-        'email': widget.currentUser?.email ?? '',
-        'isAdmin': widget.currentUser?.isAdmin ?? false,
-        'coins': 0,
-        'dailyAdCount': 0,
-        'lastAdDate': todayString,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        // 🎯 추가 통계 필드들
-        'totalCoinsEarned': 0,
-        'totalAdsWatched': 0,
-        'consecutiveDays': 1,
-        'lastLoginDate': todayString,
-      }, SetOptions(merge: true));
-
-      setState(() {
-        _userCoins = 0;
-        _todayAdsWatched = 0;
-        _isLoading = false;
-      });
-    } catch (e) {
-      print('Error creating user document: $e');
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
+  // 🎯 개선된 코인 획득 시스템 (보너스 포함)
   // 🎯 개선된 코인 획득 시스템 (보너스 포함)
   Future<void> _earnCoins() async {
     if (_isProcessing) {
@@ -382,8 +335,15 @@ class _AdRewardScreenState extends State<AdRewardScreen>
     });
 
     try {
-      final isTimeValid = await _validateTime();
-      if (!isTimeValid) {
+      // ✅ 서비스로 시간 검증
+      final timeValidation = await TimeValidationService.validateTime();
+      if (!timeValidation.isValid) {
+        _showSecurityDialog(
+          '시간 동기화 필요',
+          timeValidation.message ?? '시간 검증 실패',
+          Icons.schedule,
+          Colors.orange,
+        );
         setState(() {
           _isProcessing = false;
         });
@@ -448,98 +408,47 @@ class _AdRewardScreenState extends State<AdRewardScreen>
     }
   }
 
-  // 🎯 개선된 코인 지급 시스템 (보너스 로직 포함)
+  // ✅ 코인 지급 시스템 (CoinService 사용)
   Future<void> _giveCoinsToUser() async {
     try {
-      final serverTime = await _getServerTime();
-      final todayString = _formatDate(serverTime);
+      final deviceId = await DeviceInfoHelper.getDeviceId();
 
-      final isTimeValid = await _validateTime();
-      if (!isTimeValid) return;
+      // ✅ CoinService로 코인 지급 처리
+      final result = await CoinService.giveCoins(
+        userId: _userId,
+        deviceId: deviceId,
+        consecutiveAds: _consecutiveAds,
+      );
 
-      // 🎯 보너스 계산 로직
-      int baseCoins = 1;
-      _bonusMultiplier = 1;
-      _bonusReason = '';
-
-      // 연속 시청 보너스 (5회마다 2배)
-      if ((_todayAdsWatched + 1) % 5 == 0) {
-        _bonusMultiplier = 2;
-        _bonusReason = '연속 시청 보너스!';
-      }
-
-      // 랜덤 럭키 보너스 (5% 확률로 3배, 1% 확률로 5배)
-      final random = Random();
-      final luckyChance = random.nextDouble();
-      if (luckyChance < 0.03) {
-        _bonusMultiplier = 5;
-        _bonusReason = '🍀 슈퍼 럭키 보너스!';
-      } else if (luckyChance < 0.2) {
-        _bonusMultiplier = 2;
-        _bonusReason = '🍀 럭키 보너스!';
-      }
-
-
-      final finalCoins = baseCoins * _bonusMultiplier;
-      _showBonusAnimation = _bonusMultiplier > 1;
-
-      await _firestore.runTransaction((transaction) async {
-        final userRef = _firestore.collection('users').doc(_userId);
-        final userDoc = await transaction.get(userRef);
-
-        if (!userDoc.exists) {
-          throw Exception('사용자 문서가 존재하지 않습니다');
-        }
-
-        final userData = userDoc.data()!;
-        final currentCoins = (userData['coins'] ?? 0).toInt();
-        final totalCoinsEarned = (userData['totalCoinsEarned'] ?? 0).toInt();
-        final totalAdsWatched = (userData['totalAdsWatched'] ?? 0).toInt();
-        final lastAdDate = userData['lastAdDate'] ?? '';
-        final currentDailyCount = (lastAdDate == todayString)
-            ? (userData['dailyAdCount'] ?? 0).toInt()
-            : 0;
-
-        if (currentDailyCount >= _maxDailyAds) {
-          throw Exception('일일 광고 시청 한도 초과');
-        }
-
-        // 사용자 데이터 업데이트
-        transaction.update(userRef, {
-          'coins': currentCoins + finalCoins,
-          'totalCoinsEarned': totalCoinsEarned + finalCoins,
-          'totalAdsWatched': totalAdsWatched + 1,
-          'dailyAdCount': currentDailyCount + 1,
-          'lastAdDate': todayString,
-          'updatedAt': FieldValue.serverTimestamp(),
+      if (result.success) {
+        // 성공 처리
+        setState(() {
+          _userCoins += result.coinsEarned;
+          _todayAdsWatched = result.newDailyCount!;
+          _consecutiveAds++;
+          _lastAdWatchTime = DateTime.now();
         });
 
-        // 🎯 상세한 시청 기록 저장
-        transaction.set(_firestore.collection('ad_views').doc(), {
-          'userId': _userId,
-          'userName': widget.currentUser?.name ?? 'Unknown',
-          'adType': 'rewarded',
-          'baseCoins': baseCoins,
-          'bonusMultiplier': _bonusMultiplier,
-          'finalCoins': finalCoins,
-          'bonusReason': _bonusReason,
-          'viewedAt': FieldValue.serverTimestamp(),
-          'serverDate': todayString,
-          'deviceTime': Timestamp.fromDate(DateTime.now()),
-          'dailyCount': currentDailyCount + 1,
-        });
+        // 보너스 정보 저장
+        if (result.hasBonus) {
+          _bonusMultiplier = result.bonusMultiplier!;
+          _bonusReason = CoinService.getBonusDescription(result.newDailyCount!);
+          _showBonusAnimation = true;
+        } else {
+          _bonusMultiplier = 1;
+          _bonusReason = '';
+          _showBonusAnimation = false;
+        }
 
-        print('💰 코인 지급 완료: +$finalCoins (${_bonusMultiplier}x 보너스)');
-      });
-
-      setState(() {
-        _userCoins += finalCoins;
-        _todayAdsWatched += 1;
-        _lastAdWatchTime = DateTime.now();
-      });
-
-      await _showCoinEarnedAnimation(finalCoins);
-
+        await _showCoinEarnedAnimation(result.coinsEarned);
+      } else {
+        // 에러 처리
+        if (result.errorType == CoinRewardError.dailyLimitReached) {
+          _showDailyLimitDialog();
+        } else {
+          _showSnackBar(result.errorMessage!, Colors.red);
+        }
+      }
     } catch (e) {
       print('코인 지급 실패: $e');
       _showSnackBar('코인 지급 중 오류가 발생했습니다.', Colors.red);
@@ -1216,7 +1125,7 @@ class _AdRewardScreenState extends State<AdRewardScreen>
                           ),
                           SizedBox(height: 4),
                           Text(
-                            '기본 1코인 + 보너스 확률!',
+                            '5번째 +2, 10번째 +4 보너스!',
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.9),
                               fontSize: 14,
@@ -1974,11 +1883,11 @@ class _AdRewardScreenState extends State<AdRewardScreen>
     // 🔒 부정 방지 체크
     try {
       final fraudService = FraudPreventionService();
-      final deviceId = await DeviceInfoHelper.getDeviceId(); // Device ID를 미리 가져옴
+      final deviceId = await DeviceInfoHelper.getDeviceId();
 
       final fraudCheck = await fraudService.performFraudCheck(
         userId: _userId,
-        deviceId: deviceId, // FraudPreventionService에서 prizes/{prizeId}/participants/{deviceId}로 사용됨
+        deviceId: deviceId,
         eventId: prizeId,
       );
 
@@ -1988,7 +1897,6 @@ class _AdRewardScreenState extends State<AdRewardScreen>
       }
     } catch (e) {
       print('부정 방지 체크 실패: $e');
-      // 부정 방지 체크 실패 시 응모를 허용하지 않는 것이 안전합니다.
       _showSnackBar('응모 전 보안 검증에 실패했습니다.', Colors.red);
       return;
     }
@@ -2076,65 +1984,30 @@ class _AdRewardScreenState extends State<AdRewardScreen>
     if (confirmed != true) return;
 
     try {
-      final isTimeValid = await _validateTime();
-      if (!isTimeValid) return;
+      final deviceId = await DeviceInfoHelper.getDeviceId();
 
-      // 트랜잭션 시작
-      await _firestore.runTransaction((transaction) async {
-        final userRef = _firestore.collection('users').doc(_userId);
-        final prizeRef = _firestore.collection('prizes').doc(prizeId); // ⭐ prize 문서 참조
-        // userId를 참가자 문서 ID로 사용 (참가자 조회 시 유저 ID로 바로 접근 가능)
-        final participantRef = prizeRef.collection('participants').doc();
+      // ✅ LotteryParticipationService로 추첨 응모 처리
+      final result = await LotteryParticipationService.participate(
+        userId: _userId,
+        userName: widget.currentUser?.name ?? 'Unknown',
+        userEmail: widget.currentUser?.email ?? '',
+        prizeId: prizeId,
+        prizeName: prizeName,
+        requiredCoins: requiredCoins,
+        deviceId: deviceId,
+      );
 
-        final userDoc = await transaction.get(userRef);
-
-        if (!userDoc.exists) {
-          throw Exception('사용자 문서가 존재하지 않습니다');
-        }
-
-        final userData = userDoc.data()!;
-        final int currentCoins = (userData['coins'] ?? 0).toInt();
-
-        if (currentCoins < requiredCoins) {
-          throw Exception('코인이 부족합니다');
-        }
-
-        final deviceId = await DeviceInfoHelper.getDeviceId();
-
-        // 1. 코인 차감 (유저 문서 업데이트)
-        transaction.update(userRef, {
-          'coins': FieldValue.increment(-requiredCoins),
-          'updatedAt': FieldValue.serverTimestamp(),
+      if (result.success) {
+        setState(() {
+          _userCoins = result.remainingCoins!;
         });
 
-        // 2. 추첨 응모 기록 (Subcollection 방식 - prizes/{prizeId}/participants/{userId} 에 저장)
-        transaction.set(participantRef, {
-          'userId': _userId,
-          'userName': widget.currentUser?.name ?? 'Unknown',
-          'email': widget.currentUser?.email ?? '',
-          'coinsSpent': requiredCoins,
-          'deviceId': deviceId,
-          'participatedAt': FieldValue.serverTimestamp(),
-          'status': 'pending',
-        });
-
-        // 3. 상품 참가자 수 증가 (prize 문서 업데이트)
-        transaction.update(prizeRef, {
-          'currentParticipants': FieldValue.increment(1),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-
-        print('🎯 추첨 응모 완료: $prizeName ($requiredCoins 코인) - Subcollection 방식');
-      }); // 트랜잭션 종료
-
-      setState(() {
-        _userCoins -= requiredCoins;
-      });
-
-      // 성공 애니메이션 및 다이얼로그
-      HapticFeedback.heavyImpact();
-      _showSuccessDialog(prizeName, requiredCoins);
-
+        HapticFeedback.heavyImpact();
+        _showSuccessDialog(prizeName, result.coinsSpent!);
+      } else {
+        // 에러 처리
+        _showSnackBar(result.errorMessage!, Colors.red);
+      }
     } catch (e) {
       print('추첨 응모 실패: $e');
       _showSnackBar('응모 중 오류가 발생했습니다.', Colors.red);
@@ -2284,7 +2157,7 @@ class PrizeEntryInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     // 1. 사용자 응모 횟수를 비동기로 가져옵니다.
     return FutureBuilder<int>(
-      future: PrizeService.getUserEntryCount(prize.id, userId),
+      future: LotteryParticipationService.getUserEntryCount(prize.id, userId),
       builder: (context, snapshot) {
         // 데이터가 로딩 중이거나 오류가 나도 0으로 표시 (사용자 경험 개선)
         final myEntries = snapshot.data ?? 0;
@@ -2297,7 +2170,7 @@ class PrizeEntryInfo extends StatelessWidget {
               children: [
                 Icon(Icons.people, size: 16, color: FifaColors.textSecondary),
                 SizedBox(width: 4),
-                // prize.currentParticipants는 PrizeService의 transaction에서 증가시킨 총 응모 횟수입니다.
+                // prize.currentParticipants는 LotteryParticipationService의 transaction에서 증가시킨 총 응모 횟수입니다.
                 Text(
                   '총 응모: ${prize.currentParticipants}회',
                   style: TextStyle(
