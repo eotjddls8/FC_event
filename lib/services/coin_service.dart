@@ -201,7 +201,7 @@ class CoinService {
   /// - 10번째: +4 코인 (총 5코인)
   /// - 그 외: 0 (총 1코인)
   static int calculateBonusCoins(int viewCount) {
-    if (viewCount == 5) {
+    if (viewCount == 6) {
       return bonus5thView;
     } else if (viewCount == 10) {
       return bonus10thView;
@@ -211,8 +211,8 @@ class CoinService {
 
   /// 시청 횟수에 따른 보너스 메시지를 반환합니다
   static String getBonusDescription(int viewCount) {
-    if (viewCount == 5) {
-      return '🎉 5회 달성! +2 보너스!';
+    if (viewCount == 6) {
+      return '🎉 6회 달성! +2 보너스!';
     } else if (viewCount == 10) {
       return '🔥 10회 달성! +4 보너스!';
     }

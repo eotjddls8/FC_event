@@ -324,8 +324,8 @@ class _AdRewardScreenState extends State<AdRewardScreen>
 
     // 쿨다운 체크 (30초)
     if (_lastAdWatchTime != null &&
-        DateTime.now().difference(_lastAdWatchTime!).inSeconds < 30) {
-      final remainingTime = 30 - DateTime.now().difference(_lastAdWatchTime!).inSeconds;
+        DateTime.now().difference(_lastAdWatchTime!).inSeconds < 5) {
+      final remainingTime = 5 - DateTime.now().difference(_lastAdWatchTime!).inSeconds;
       _showSnackBar('$remainingTime초 후에 다시 시청할 수 있습니다.', Colors.blue);
       return;
     }
@@ -468,7 +468,7 @@ class _AdRewardScreenState extends State<AdRewardScreen>
     );
 
     // 3초 후 자동 닫기
-    Timer(Duration(seconds: 3), () {
+    Timer(Duration(seconds: 360), () {
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
       }
@@ -479,6 +479,7 @@ class _AdRewardScreenState extends State<AdRewardScreen>
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       backgroundColor: Colors.transparent,
+      // 1. Stack을 다시 제거하고 Container만 남깁니다.
       child: Container(
         padding: EdgeInsets.all(24),
         decoration: BoxDecoration(
@@ -577,7 +578,6 @@ class _AdRewardScreenState extends State<AdRewardScreen>
             ],
 
             SizedBox(height: 16),
-
             Text(
               '현재 보유: $_userCoins 코인',
               style: TextStyle(
@@ -585,9 +585,7 @@ class _AdRewardScreenState extends State<AdRewardScreen>
                 fontSize: 16,
               ),
             ),
-
             SizedBox(height: 8),
-
             Text(
               '오늘 시청: $_todayAdsWatched/$_maxDailyAds',
               style: TextStyle(
@@ -595,9 +593,36 @@ class _AdRewardScreenState extends State<AdRewardScreen>
                 fontSize: 14,
               ),
             ),
+
+            // 2. ⬇️⬇️ (X 버튼 대신 [확인] 버튼 추가) ⬇️⬇️
+            SizedBox(height: 24), // 버튼 위 여백
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context); // 닫기 버튼 누르면 다이얼로그 닫힘
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white, // 배경색: 흰색
+                  foregroundColor: Colors.orange.shade700, // 글자색: 주황색
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: Text(
+                  '확인',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
+      // 3. 닫기 버튼(Positioned) 제거
     );
   }
 
@@ -1070,7 +1095,8 @@ class _AdRewardScreenState extends State<AdRewardScreen>
       animation: _pulseAnimation,
       builder: (context, child) {
         return Transform.scale(
-          scale: canWatchAd ? _pulseAnimation.value : 0,
+          //광고 10번 한도에 도달했을 때 0 -> 해당 카드 사라짐 , 1.0 -> 해당 카드 남아있음
+          scale: canWatchAd ? _pulseAnimation.value : 1.0,
           child: Container(
             width: double.infinity,
             padding: EdgeInsets.all(24),
@@ -1125,7 +1151,7 @@ class _AdRewardScreenState extends State<AdRewardScreen>
                           ),
                           SizedBox(height: 4),
                           Text(
-                            '5번째 +2, 10번째 +4 보너스!',
+                            '기본 1코인 +6회,10회 보너스!',
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.9),
                               fontSize: 14,
@@ -2133,7 +2159,7 @@ class _AdRewardScreenState extends State<AdRewardScreen>
     );
 
     // 3초 후 자동 닫기
-    Timer(Duration(seconds: 3), () {
+    Timer(Duration(seconds: 360), () {
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
       }
