@@ -22,6 +22,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions { jvmTarget = "17" }
 
@@ -63,9 +64,11 @@ flutter {
 // ⚠️ FlutterFire가 네이티브 의존성을 자동으로 관리합니다.
 // firebase_analytics를 쓰려면 pubspec.yaml에만 추가하세요.
 // 아래 dependencies 블록은 지우는 것을 권장합니다.
-/*
+
 dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.0.0"))
     implementation("com.google.firebase:firebase-analytics")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+
 }
-*/
+

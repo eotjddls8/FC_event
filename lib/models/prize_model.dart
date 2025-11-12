@@ -120,10 +120,10 @@ class PrizeModel {
 
 // 상품 티어
 enum PrizeTier {
-  bronze(1, '1,000원 상당', '🥉'),
-  silver(3, '5,000원 상당', '🥈'),
-  gold(5, '10,000원 상당', '🥇'),
-  diamond(10, '50,000원 상당', '💎');
+  bronze(1, '브론즈', '🥉'),
+  silver(3, '실버', '🥈'),
+  gold(5, '골드', '🥇'),
+  diamond(10, '다이아', '💎');
 
   const PrizeTier(this.requiredAdViews, this.valueDisplay, this.emoji);
 
