@@ -27,6 +27,7 @@ class _EventWriteScreenState extends State<EventWriteScreen> {
   DateTime? _selectedEndDate;
   DateTime? _selectedRewardEndDate; // 🎯 보상 종료 날짜 추가
   bool _isLoading = false;
+  bool _isPermanent = false; // ⚡️ 1. 항시 이벤트 상태 변수 추가
 
   @override
   void initState() {
@@ -38,6 +39,7 @@ class _EventWriteScreenState extends State<EventWriteScreen> {
       _selectedStartDate = widget.editEvent!.startDate;
       _selectedEndDate = widget.editEvent!.endDate;
       _selectedRewardEndDate = widget.editEvent!.rewardEndDate;
+      _isPermanent = widget.editEvent!.isPermanent; // ⚡️ 2. 수정 시 항시 여부 초기화
     } else {
       // 기본값 설정
       _selectedStartDate = DateTime.now();
@@ -53,7 +55,7 @@ class _EventWriteScreenState extends State<EventWriteScreen> {
     super.dispose();
   }
 
-  // 🗓️ 날짜 선택기
+  // 🗓️ 날짜 선택기 (기존과 동일)
   Future<void> _selectDate({
     required BuildContext context,
     required String dateType,
@@ -145,7 +147,8 @@ class _EventWriteScreenState extends State<EventWriteScreen> {
   Future<void> _saveEvent() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_selectedStartDate == null || _selectedEndDate == null || _selectedRewardEndDate == null) {
+    // ⚡️ 5. 날짜 유효성 검사를 항시 이벤트가 아닐 때만 실행
+    if (!_isPermanent && (_selectedStartDate == null || _selectedEndDate == null || _selectedRewardEndDate == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('모든 날짜를 선택해주세요'),
@@ -157,16 +160,24 @@ class _EventWriteScreenState extends State<EventWriteScreen> {
 
     setState(() => _isLoading = true);
 
+    // ⚡️ 항시 이벤트일 경우, 날짜 필드를 현재 시간으로 채워 null 방지
+    final now = DateTime.now();
+    final startDate = _isPermanent ? now : _selectedStartDate!;
+    final endDate = _isPermanent ? now : _selectedEndDate!;
+    final rewardEndDate = _isPermanent ? now : _selectedRewardEndDate!;
+
+
     try {
       final eventData = {
         'title': _titleController.text.trim(),
         'content': _contentController.text.trim(),
         'author': widget.currentUser.email,
-        'startDate': Timestamp.fromDate(_selectedStartDate!),
-        'endDate': Timestamp.fromDate(_selectedEndDate!),
-        'rewardEndDate': Timestamp.fromDate(_selectedRewardEndDate!), // 🎯 추가
+        'startDate': Timestamp.fromDate(startDate),
+        'endDate': Timestamp.fromDate(endDate),
+        'rewardEndDate': Timestamp.fromDate(rewardEndDate),
         'likes': widget.editEvent?.likes ?? 0,
         'likedUsers': widget.editEvent?.likedUsers ?? [],
+        'isPermanent': _isPermanent, // ⚡️ 5. 항시 이벤트 여부 저장
       };
 
       if (widget.editEvent != null) {
@@ -271,49 +282,86 @@ class _EventWriteScreenState extends State<EventWriteScreen> {
                 ),
               ),
 
-              // 🎯 3단계 날짜 선택 섹션
+              // ⚡️ 3. 항시 이벤트 스위치 추가
               _buildInputSection(
-                icon: Icons.calendar_month_rounded,
-                title: '이벤트 기간 설정',
-                child: Column(
-                  children: [
-                    // 시작 날짜
-                    _buildDateSelector(
-                      label: '이벤트 시작',
-                      date: _selectedStartDate,
-                      color: Color(0xFF2196F3),
-                      icon: Icons.play_arrow_rounded,
-                      onTap: () => _selectDate(context: context, dateType: 'start'),
+                icon: Icons.autorenew_rounded,
+                title: '이벤트 유형',
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: SwitchListTile(
+                    title: Text(
+                      '항시 이벤트 (매일 참여)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                      ),
                     ),
-                    SizedBox(height: 12),
-
-                    // 종료 날짜
-                    _buildDateSelector(
-                      label: '이벤트 종료',
-                      date: _selectedEndDate,
-                      color: Color(0xFFF44336),
-                      icon: Icons.stop_rounded,
-                      onTap: () => _selectDate(context: context, dateType: 'end'),
+                    subtitle: Text(
+                      '날짜와 관계없이 항상 목록에 노출됩니다.',
+                      style: TextStyle(fontSize: 12),
                     ),
-                    SizedBox(height: 12),
-
-                    // 보상 종료 날짜
-                    _buildDateSelector(
-                      label: '보상 수령 마감',
-                      date: _selectedRewardEndDate,
-                      color: Color(0xFFFFC107),
-                      icon: Icons.card_giftcard_rounded,
-                      onTap: () => _selectDate(context: context, dateType: 'reward'),
-                    ),
-                  ],
+                    value: _isPermanent,
+                    onChanged: (bool value) {
+                      setState(() {
+                        _isPermanent = value;
+                      });
+                    },
+                    activeColor: FifaColors.primary,
+                  ),
                 ),
               ),
 
-              // 기간 미리보기
-              if (_selectedStartDate != null &&
-                  _selectedEndDate != null &&
-                  _selectedRewardEndDate != null)
-                _buildPeriodPreview(),
+              // ⚡️ 4. 날짜 선택기를 항시 이벤트가 아닐 때만 표시
+              if (!_isPermanent) ...[
+                // 🎯 3단계 날짜 선택 섹션
+                _buildInputSection(
+                  icon: Icons.calendar_month_rounded,
+                  title: '이벤트 기간 설정',
+                  child: Column(
+                    children: [
+                      // 시작 날짜
+                      _buildDateSelector(
+                        label: '이벤트 시작',
+                        date: _selectedStartDate,
+                        color: Color(0xFF2196F3),
+                        icon: Icons.play_arrow_rounded,
+                        onTap: () => _selectDate(context: context, dateType: 'start'),
+                      ),
+                      SizedBox(height: 12),
+
+                      // 종료 날짜
+                      _buildDateSelector(
+                        label: '이벤트 종료',
+                        date: _selectedEndDate,
+                        color: Color(0xFFF44336),
+                        icon: Icons.stop_rounded,
+                        onTap: () => _selectDate(context: context, dateType: 'end'),
+                      ),
+                      SizedBox(height: 12),
+
+                      // 보상 종료 날짜
+                      _buildDateSelector(
+                        label: '보상 수령 마감',
+                        date: _selectedRewardEndDate,
+                        color: Color(0xFFFFC107),
+                        icon: Icons.card_giftcard_rounded,
+                        onTap: () => _selectDate(context: context, dateType: 'reward'),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 기간 미리보기
+                if (_selectedStartDate != null &&
+                    _selectedEndDate != null &&
+                    _selectedRewardEndDate != null)
+                  _buildPeriodPreview(),
+              ], // ⚡️ 4. if (!_isPermanent) 끝
 
               SizedBox(height: 32),
 

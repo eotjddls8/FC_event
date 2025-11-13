@@ -7,8 +7,8 @@ import '../widgets/banner_ad_widget.dart';
 import 'event_write_screen.dart';
 import 'event_detail_screen.dart';
 
-// 🎯 필터 상태를 정의하는 Enum
-enum FilterStatus { active, reward, ended }
+// 🎯 필터 상태를 정의하는 Enum (⚡️ 1. ended -> permanent 로 변경)
+enum FilterStatus { active, reward, permanent }
 
 class EventListScreen extends StatefulWidget {
   final UserModel? currentUser;
@@ -23,10 +23,11 @@ class _EventListScreenState extends State<EventListScreen> {
   // 🎯 현재 선택된 필터 상태. null이면 '전체 보기'
   FilterStatus? _currentFilter;
 
-  // 🎯 개선된 이벤트 정렬 (3단계 상태 기반)
+  // 🎯 개선된 이벤트 정렬 (⚡️ 2. 5단계 상태 기반으로 수정)
   List<Event> sortEventsByStatus(List<Event> events) {
     List<Event> activeEvents = [];      // 진행 중
     List<Event> rewardEvents = [];      // 보상 기간
+    List<Event> permanentEvents = [];   // ⚡️ 항시 이벤트
     List<Event> upcomingEvents = [];    // 시작 예정
     List<Event> endedEvents = [];       // 완전 종료
 
@@ -37,6 +38,8 @@ class _EventListScreenState extends State<EventListScreen> {
         activeEvents.add(event);
       } else if (status == EventStatus.rewardPeriod) {
         rewardEvents.add(event);
+      } else if (status == EventStatus.permanent) { // ⚡️ 항시 이벤트 분기
+        permanentEvents.add(event);
       } else if (status == EventStatus.upcoming) {
         upcomingEvents.add(event);
       } else if (status == EventStatus.ended) {
@@ -45,13 +48,15 @@ class _EventListScreenState extends State<EventListScreen> {
     }
 
     // 각 그룹 내 정렬: 진행/보상/예정은 마감일이 빠른 순, 종료는 최신 종료일 순
+    // (항시 이벤트는 정렬이 필요 없거나, 생성일 순으로 할 수 있음. 여기선 추가 정렬 없음)
     activeEvents.sort((a, b) => a.endDate.compareTo(b.endDate));
     rewardEvents.sort((a, b) => a.rewardEndDate.compareTo(b.rewardEndDate));
     upcomingEvents.sort((a, b) => a.startDate.compareTo(b.startDate));
     endedEvents.sort((a, b) => b.rewardEndDate.compareTo(a.rewardEndDate));
+    permanentEvents.sort((a, b) => b.createdAt.compareTo(a.createdAt)); // ⚡️ 항시 이벤트는 생성일순 정렬
 
-    // 최종 순서: 진행중 → 보상중 → 예정 → 종료
-    return [...activeEvents, ...rewardEvents, ...upcomingEvents, ...endedEvents];
+    // ⚡️ 최종 순서: 진행중 → 보상중 → 항시(매일) → 예정 → 종료
+    return [...activeEvents, ...rewardEvents, ...permanentEvents, ...upcomingEvents, ...endedEvents];
   }
 
   // 🎯 _buildEventSection을 리스트로 반환하고 null 처리 로직을 추가하여 SliverList에 사용하기 쉽게 변경
@@ -64,7 +69,7 @@ class _EventListScreenState extends State<EventListScreen> {
 
 // EventListScreen.dart 파일의 _EventListScreenState 클래스 내부
 
-// 🎯 이벤트 상태에 따라 D-Day 정보(텍스트, 색상)를 계산하는 헬퍼 함수 (수정)
+// 🎯 이벤트 상태에 따라 D-Day 정보(텍스트, 색상)를 계산하는 헬퍼 함수 (⚡️ permanent 상태 추가)
   Map<String, dynamic> _getDdayInfo(Event event) {
     // Event 모델의 daysRemaining을 바로 사용 (0이면 오늘 마감)
     final days = event.daysRemaining;
@@ -89,6 +94,11 @@ class _EventListScreenState extends State<EventListScreen> {
         ddayColor = event.statusColor;
         if (days <= 0) ddayText = 'D-DAY';
         else ddayText = 'D-$days';
+        break;
+
+      case EventStatus.permanent: // ⚡️ 항시 이벤트 D-Day 정의
+        ddayColor = event.statusColor; // 모델에서 정의한 파란색
+        ddayText = '매일'; // D-Day 대신 '매일' 표시
         break;
 
       case EventStatus.ended:
@@ -181,6 +191,8 @@ class _EventListScreenState extends State<EventListScreen> {
                 SliverList(
                   delegate: SliverChildListDelegate(
                     [
+                      // ⚡️ 4. 리스트 순서 및 필터링 조건 변경
+
                       // 진행 중 이벤트 (필터: All or Active)
                       if (_currentFilter == null || _currentFilter == FilterStatus.active)
                         ...?_buildEventSectionIfNotEmpty(groupedEvents[EventStatus.active], '🔥 진행 중', isHighlighted: true),
@@ -189,12 +201,16 @@ class _EventListScreenState extends State<EventListScreen> {
                       if (_currentFilter == null || _currentFilter == FilterStatus.reward)
                         ...?_buildEventSectionIfNotEmpty(groupedEvents[EventStatus.rewardPeriod], '🎁 보상 수령 가능', isHighlighted: true),
 
+                      // ⚡️ 매일 이벤트 (필터: All or Permanent)
+                      if (_currentFilter == null || _currentFilter == FilterStatus.permanent)
+                        ...?_buildEventSectionIfNotEmpty(groupedEvents[EventStatus.permanent], '⚡️ 매일 이벤트', isHighlighted: true),
+
                       // 시작 예정 이벤트 (필터: All only)
                       if (_currentFilter == null)
                         ...?_buildEventSectionIfNotEmpty(groupedEvents[EventStatus.upcoming], '📅 시작 예정'),
 
-                      // 종료된 이벤트 (필터: All or Ended)
-                      if (_currentFilter == null || _currentFilter == FilterStatus.ended)
+                      // 종료된 이벤트 (필터: All only) ⚡️ (ended 필터가 없어졌으므로 All일 때만 표시)
+                      if (_currentFilter == null)
                         ...?_buildEventSectionIfNotEmpty(groupedEvents[EventStatus.ended], '✅ 종료됨', isCollapsed: true),
 
                       SizedBox(height: 100), // FAB 공간
@@ -248,20 +264,22 @@ class _EventListScreenState extends State<EventListScreen> {
     );
   }
 
-  // 🎯 필터 세그먼트 위젯 (Sticky Header)
+  // 🎯 필터 세그먼트 위젯 (Sticky Header) (⚡️ 3. 요청사항 반영)
   Widget _buildFilterSegment(Map<EventStatus, List<Event>> groupedEvents) {
     // 필터 카운트 로직 (각 필터는 해당 상태만 카운트)
     final activeCount = groupedEvents[EventStatus.active]?.length ?? 0;
     final rewardCount = groupedEvents[EventStatus.rewardPeriod]?.length ?? 0;
-    final endedCount = groupedEvents[EventStatus.ended]?.length ?? 0;
+    final permanentCount = groupedEvents[EventStatus.permanent]?.length ?? 0; // ⚡️ 항시 카운트
+    // final endedCount = groupedEvents[EventStatus.ended]?.length ?? 0; // ⚡️ 종료는 필터에서 빠짐
 
-    // 필터 컬러 정의
-    final Color activeColor = Color(0xFF2196F3); // 파랑
+    // ⚡️ 필터 컬러 정의 (빨강, 노랑, 파랑)
+    final Color activeColor = Color(0xFFF44336); // 빨강
     final Color rewardColor = Color(0xFFFFC107); // 노랑
-    final Color endedColor = Color(0xFF616161); // 회색
+    final Color permanentColor = Color(0xFF2196F3); // 파랑
 
     return Row(
       children: [
+        // 1. 진행 (빨강)
         _buildFilterItem(
           title: '진행',
           status: FilterStatus.active,
@@ -270,6 +288,7 @@ class _EventListScreenState extends State<EventListScreen> {
           isCurrentFilter: _currentFilter == FilterStatus.active,
         ),
         SizedBox(width: 8),
+        // 2. 보상 (노랑)
         _buildFilterItem(
           title: '보상',
           status: FilterStatus.reward,
@@ -278,12 +297,13 @@ class _EventListScreenState extends State<EventListScreen> {
           isCurrentFilter: _currentFilter == FilterStatus.reward,
         ),
         SizedBox(width: 8),
+        // 3. 항시 (파랑)
         _buildFilterItem(
-          title: '종료',
-          status: FilterStatus.ended,
-          count: endedCount,
-          color: endedColor,
-          isCurrentFilter: _currentFilter == FilterStatus.ended,
+          title: '항시',
+          status: FilterStatus.permanent,
+          count: permanentCount,
+          color: permanentColor,
+          isCurrentFilter: _currentFilter == FilterStatus.permanent,
         ),
       ],
     );
@@ -354,6 +374,27 @@ class _EventListScreenState extends State<EventListScreen> {
     bool isHighlighted = false,
     bool isCollapsed = false,
   }) {
+    // ⚡️ 항시 이벤트(permanent)의 경우 '매일 이벤트' 섹션 제목 색상을 파란색으로 강조
+    Color titleColor = Colors.grey[700]!;
+    Color countBgColor = Colors.grey[200]!;
+    Color countTextColor = Colors.grey[600]!;
+
+    if (isHighlighted) {
+      titleColor = FifaColors.primary; // '진행', '보상' (기존 로직)
+      countBgColor = FifaColors.primary.withOpacity(0.1);
+      countTextColor = FifaColors.primary;
+    }
+
+    // ⚡️ '매일 이벤트' 섹션 제목 (permanent) 강조
+    // (참고: permanent 상태의 색상은 1단계에서 0xFF0D47A1로 정의했으나,
+    //       필터 색상(0xFF2196F3)과 통일성을 위해 필터 색상을 사용)
+    if (title.contains('매일')) {
+      titleColor = Color(0xFF2196F3); // 파랑
+      countBgColor = Color(0xFF2196F3).withOpacity(0.1);
+      countTextColor = Color(0xFF2196F3);
+    }
+
+
     return Container(
       margin: EdgeInsets.only(top: 16),
       child: Column(
@@ -369,16 +410,14 @@ class _EventListScreenState extends State<EventListScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: isHighlighted ? FifaColors.primary : Colors.grey[700],
+                    color: titleColor, // ⚡️ 위에서 계산된 색상 적용
                   ),
                 ),
                 SizedBox(width: 8),
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: isHighlighted
-                        ? FifaColors.primary.withOpacity(0.1)
-                        : Colors.grey[200],
+                    color: countBgColor, // ⚡️ 위에서 계산된 색상 적용
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -386,7 +425,7 @@ class _EventListScreenState extends State<EventListScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: isHighlighted ? FifaColors.primary : Colors.grey[600],
+                      color: countTextColor, // ⚡️ 위에서 계산된 색상 적용
                     ),
                   ),
                 ),
@@ -413,9 +452,12 @@ class _EventListScreenState extends State<EventListScreen> {
     final ddayInfo = _getDdayInfo(event); // D-Day 정보 가져오기
 
     // 💡 테두리 및 그림자 색상 결정 로직 (변경 없음)
+    // ⚡️ 항시 이벤트(permanent)도 하이라이트 되도록 조건 추가
     final Color effectiveBorderColor = isEnded ? Colors.grey[300]! : event.statusColor;
     final double effectiveBorderWidth = isEnded ? 1.0 : 3.0;
-    final bool isHighlighted = event.status == EventStatus.active || event.status == EventStatus.rewardPeriod;
+    final bool isHighlighted = event.status == EventStatus.active ||
+        event.status == EventStatus.rewardPeriod ||
+        event.status == EventStatus.permanent; // ⚡️ 항시 이벤트도 강조
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -426,7 +468,7 @@ class _EventListScreenState extends State<EventListScreen> {
         shadowColor: isHighlighted ? effectiveBorderColor.withOpacity(0.3) : Colors.black.withOpacity(0.05),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: isEnded ? null : () {
+          onTap: isEnded ? null : () { // ⚡️ 종료된 이벤트가 아니면 (항시 이벤트 포함) 상세 이동
             // 🔧 EventDetailScreen 호출 수정
             Navigator.push(
               context,
@@ -462,7 +504,7 @@ class _EventListScreenState extends State<EventListScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
-                        event.statusIcon,
+                        event.statusIcon, // ⚡️ 1단계에서 정의한 아이콘 (permanent는 autorenew)
                         color: event.statusColor,
                         size: 24,
                       ),
@@ -516,7 +558,7 @@ class _EventListScreenState extends State<EventListScreen> {
                           ],
                         ),
                         child: Text(
-                          ddayInfo['text'], // D-Day 텍스트 표시 (예: D-6, 보상 D-3)
+                          ddayInfo['text'], // ⚡️ D-Day 텍스트 (permanent는 '매일')
                           style: TextStyle(
                             color: Colors.white, // 흰색 텍스트로 대비 강조
                             fontSize: 14, // 폰트 크기
@@ -546,37 +588,39 @@ class _EventListScreenState extends State<EventListScreen> {
                 SizedBox(height: 12),
 
                 // 하단: 기간 정보 (변경 없음)
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
+                // ⚡️ 5. 항시 이벤트일 경우 기간 정보 숨기기
+                if (event.status != EventStatus.permanent)
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildDateInfo(
+                          icon: Icons.play_arrow_rounded,
+                          date: event.startDate,
+                          color: Color(0xFF2196F3),
+                        ),
+                        // 버전 1 (진행률 바) 사용
+                        Expanded(
+                          child: _buildProgressBar(event),
+                        ),
+                        _buildDateInfo(
+                          icon: Icons.stop_rounded,
+                          date: event.endDate,
+                          color: Color(0xFFF44336),
+                        ),
+                        SizedBox(width: 8),
+                        _buildDateInfo(
+                          icon: Icons.card_giftcard_rounded,
+                          date: event.rewardEndDate,
+                          color: Color(0xFFFFC107),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      _buildDateInfo(
-                        icon: Icons.play_arrow_rounded,
-                        date: event.startDate,
-                        color: Color(0xFF2196F3),
-                      ),
-                      // 버전 1 (진행률 바) 사용
-                      Expanded(
-                        child: _buildProgressBar(event),
-                      ),
-                      _buildDateInfo(
-                        icon: Icons.stop_rounded,
-                        date: event.endDate,
-                        color: Color(0xFFF44336),
-                      ),
-                      SizedBox(width: 8),
-                      _buildDateInfo(
-                        icon: Icons.card_giftcard_rounded,
-                        date: event.rewardEndDate,
-                        color: Color(0xFFFFC107),
-                      ),
-                    ],
-                  ),
-                ),
 
                 // 관리자 액션 (변경 없음)
                 if (widget.currentUser?.isAdmin == true)
@@ -734,8 +778,13 @@ class _EventListScreenState extends State<EventListScreen> {
     );
   }
 
-  // 🎨 이벤트 기간(시작~종료일)만 100%로 표시하는 진행 바
+  // 🎨 이벤트 기간(시작~종료일)만 100%로 표시하는 진행 바 (⚡️ permanent 케이스 추가)
   Widget _buildProgressBar(Event event) {
+    // ⚡️ 항시 이벤트는 프로그레스 바가 필요 없음 (호출되지 않겠지만 방어 코드)
+    if (event.status == EventStatus.permanent) {
+      return Container();
+    }
+
     final now = DateTime.now();
     final isUpcoming = event.status == EventStatus.upcoming;
     final isReward = event.status == EventStatus.rewardPeriod;
@@ -781,7 +830,7 @@ class _EventListScreenState extends State<EventListScreen> {
         activeColor = Color(0xFF2196F3); // 7일 이상: 파랑
       }
     } else {
-      activeColor = Color(0xFF2196F3); // 기본값 (다른 상태가 있을 경우 대비)
+      activeColor = Color(0xFF2196F3); // 기본값 (permanent 등 다른 상태가 있을 경우 대비)
     }
 
     return Container(

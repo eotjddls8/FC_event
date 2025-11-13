@@ -12,6 +12,7 @@ class Event {
   final DateTime rewardEndDate; // 🎯 보상 종료 날짜
   final int likes;
   final List<String> likedUsers;
+  final bool isPermanent; // ⚡️ 1. 항시 이벤트 필드 추가
 
   Event({
     this.id,
@@ -24,10 +25,16 @@ class Event {
     required this.rewardEndDate,
     this.likes = 0,
     this.likedUsers = const [],
+    this.isPermanent = false, // ⚡️ 1. 생성자 기본값 false 추가
   });
 
   // 🎯 3단계 이벤트 상태 (수정됨 - 명확한 로직)
   EventStatus get status {
+    // ⚡️ 3. 항시 이벤트를 최우선 체크
+    if (isPermanent) {
+      return EventStatus.permanent;
+    }
+
     final now = DateTime.now();
 
     // 시간 제거하고 날짜만 비교
@@ -54,6 +61,11 @@ class Event {
 
   // 남은 일수 계산
   int get daysRemaining {
+    // ⚡️ 항시 이벤트는 D-Day가 의미 없음
+    if (status == EventStatus.permanent) {
+      return 0;
+    }
+
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
@@ -73,6 +85,8 @@ class Event {
         return calculateDaysDifference(rewardEndDate);
       case EventStatus.ended:
         return -1;
+      case EventStatus.permanent: // ⚡️ 분기 추가
+        return 0;
     }
   }
 
@@ -91,6 +105,8 @@ class Event {
         return Color(0xFFFFC107); // 노랑 (보상 수령 가능)
       case EventStatus.ended:
         return Color(0xFF616161); // 진한 회색 (완전 종료)
+      case EventStatus.permanent: // ⚡️ 4. 항시 이벤트 색상 (파랑)
+        return Color(0xFF0D47A1); // 진한 파랑 (요청하신 파랑 계열)
     }
   }
 
@@ -111,6 +127,8 @@ class Event {
         return '보상 D-${days}';
       case EventStatus.ended:
         return '종료됨';
+      case EventStatus.permanent: // ⚡️ 4. 항시 이벤트 텍스트
+        return '매일 이벤트';
     }
   }
 
@@ -125,6 +143,8 @@ class Event {
         return Icons.card_giftcard; // 선물
       case EventStatus.ended:
         return Icons.check_circle; // 체크
+      case EventStatus.permanent: // ⚡️ 4. 항시 이벤트 아이콘
+        return Icons.autorenew; // 반복, 순환
     }
   }
 
@@ -148,6 +168,7 @@ class Event {
       rewardEndDate: rewardEnd,
       likes: data['likes'] ?? 0,
       likedUsers: List<String>.from(data['likedUsers'] ?? []),
+      isPermanent: data['isPermanent'] ?? false, // ⚡️ 5. Firestore에서 읽기
     );
   }
 
@@ -163,6 +184,7 @@ class Event {
       'rewardEndDate': Timestamp.fromDate(rewardEndDate),
       'likes': likes,
       'likedUsers': likedUsers,
+      'isPermanent': isPermanent, // ⚡️ 5. Firestore에 저장
     };
   }
 
@@ -177,5 +199,6 @@ enum EventStatus {
   upcoming,      // 시작 예정
   active,        // 진행 중
   rewardPeriod,  // 보상 수령 기간
-  ended          // 완전 종료
+  ended,         // 완전 종료
+  permanent,     // ⚡️ 2. 항시 이벤트 상태 추가
 }

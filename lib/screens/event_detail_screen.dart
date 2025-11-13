@@ -94,6 +94,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   Widget _buildStatusCard() {
+    // ⚡️ 1단계에서 statusColor, statusIcon, statusText가
+    // ⚡️ EventStatus.permanent를 지원하도록 수정했기 때문에
+    // ⚡️ 이 위젯은 'isPermanent' 여부와 관계없이 자동으로 올바르게 표시됩니다.
+    // ⚡️ (예: '매일 이벤트', 파란색 배경, autorenew 아이콘)
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(20),
@@ -115,16 +119,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       child: Column(
         children: [
           Icon(
-            widget.event.status == EventStatus.active ? Icons.sports_soccer :
-            widget.event.status == EventStatus.upcoming ? Icons.schedule :
-            widget.event.status == EventStatus.rewardPeriod ? Icons.card_giftcard :
-            Icons.event_busy,
+            widget.event.statusIcon, // ⚡️ 1단계에서 수정됨 (permanent는 autorenew)
             size: 48,
             color: Colors.white,
           ),
           SizedBox(height: 12),
           Text(
-            widget.event.statusText,
+            widget.event.statusText, // ⚡️ 1단계에서 수정됨 (permanent는 '매일 이벤트')
             style: TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -132,6 +133,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             ),
           ),
           SizedBox(height: 8),
+
+          // ⚡️ 상태별 보조 텍스트 (permanent 추가)
           if (widget.event.status == EventStatus.active) ...[
             Text(
               '이벤트 진행 중!',
@@ -156,7 +159,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 fontSize: 14,
               ),
             ),
-          ] else ...[
+          ] else if (widget.event.status == EventStatus.permanent) ...[ // ⚡️ 추가
+            Text(
+              '매일 참여 가능한 이벤트입니다',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 14,
+              ),
+            ),
+          ] else ...[ // ended
             Text(
               '이벤트가 종료되었습니다',
               style: TextStyle(
@@ -197,14 +208,21 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           ),
           SizedBox(height: 16),
 
-          // 🎯 3단계 기간 정보 표시
-          _buildInfoRow(Icons.play_arrow, '시작일', _formatDate(widget.event.startDate)),
-          _buildInfoRow(Icons.stop, '종료일', _formatDate(widget.event.endDate)),
-          _buildInfoRow(Icons.card_giftcard, '보상 마감일', _formatDate(widget.event.rewardEndDate)),
+          // ⚡️ 1. 항시 이벤트 여부에 따라 분기 처리
+          if (widget.event.isPermanent) ...[
+            // ⚡️ 항시 이벤트일 경우
+            _buildInfoRow(Icons.autorenew, '이벤트 기간', '항시 진행 (매일 참여)'),
+            SizedBox(height: 8),
+          ] else ...[
+            // ⚡️ 기존 날짜 기반 이벤트일 경우
+            _buildInfoRow(Icons.play_arrow, '시작일', _formatDate(widget.event.startDate)),
+            _buildInfoRow(Icons.stop, '종료일', _formatDate(widget.event.endDate)),
+            _buildInfoRow(Icons.card_giftcard, '보상 마감일', _formatDate(widget.event.rewardEndDate)),
+          ],
 
           SizedBox(height: 12),
 
-          // 🎯 현재 상태 표시
+          // 🎯 현재 상태 표시 (이 부분은 수정 불필요. 1단계에서 statusText/statusIcon 수정함)
           Container(
             padding: EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -356,7 +374,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             SizedBox(height: 24),
 
             // 이벤트 정보 (보상기간 포함)
-            _buildEventInfo(),
+            _buildEventInfo(), // ⚡️ 항시 이벤트 대응 수정 완료
 
             SizedBox(height: 24),
 
