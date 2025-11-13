@@ -6,6 +6,8 @@ import '../theme/fifa_theme.dart';
 import '../widgets/banner_ad_widget.dart';
 import 'event_write_screen.dart';
 import 'event_detail_screen.dart';
+import '../widgets/notification_dialog.dart';
+
 
 // 🎯 필터 상태를 정의하는 Enum (⚡️ 1. ended -> permanent 로 변경)
 enum FilterStatus { active, reward, permanent }
@@ -146,6 +148,8 @@ class _EventListScreenState extends State<EventListScreen> {
             slivers: [
               // 💡 SliverAppBar에 '설정' 디자인과 Sticky 필터 적용
               SliverAppBar(
+                toolbarHeight: 80,  // ⭐ 이 줄 추가! (기본값 56 → 70으로 증가)
+
                 // 💡 고객님의 요청 AppBar 디자인 적용
                 title: Row(
                   children: [
@@ -161,6 +165,15 @@ class _EventListScreenState extends State<EventListScreen> {
                 ),
                 backgroundColor: Colors.blue[600],
                 iconTheme: IconThemeData(color: Colors.white), // 아이콘 색상을 흰색으로 통일
+
+                // ⭐ 여기 추가!
+                actions: [
+                  IconButton(
+                    icon: Icon(Icons.notifications_outlined),
+                    onPressed: () => showNotificationSettingsDialog(context),
+                    tooltip: '알림 설정',
+                  ),
+                ],
 
                 // 스크롤 동작 설정
                 pinned: true, // 앱바의 bottom 부분이 화면 상단에 고정됨 (필터 고정)
