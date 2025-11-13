@@ -2,7 +2,7 @@ name: fc_event
 description: FIFA Event App
 
 publish_to: 'none'
-version: 2.0.0+2
+version: 3.0.0+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'  # Flutter SDK 버전도 업데이트
