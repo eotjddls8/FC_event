@@ -2,28 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart'; // ⬅️ 새로 추가
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'screens/auth_wrapper.dart';
 import 'theme/fifa_theme.dart';
 
 // -----------------------------------------------------------
-// 🚨 [필수] 로컬 알림 플러그인 인스턴스 (전역 변수)
+// 로컬 알림 플러그인 인스턴스
 // -----------------------------------------------------------
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 FlutterLocalNotificationsPlugin();
 
 // -----------------------------------------------------------
-// 🚨 [필수] 백그라운드 메시지 핸들러 (최상위 함수)
+// 백그라운드 메시지 핸들러
 // -----------------------------------------------------------
-// 앱이 완전히 닫혀있거나 백그라운드에 있을 때 FCM 메시지를 처리합니다.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print("Handling a background message: ${message.messageId}");
-
-  // 백그라운드에서도 로컬 알림을 띄우고 싶다면 여기에 show 로직 추가 가능
+  print("📩 백그라운드 메시지 수신: ${message.messageId}");
+  print("제목: ${message.notification?.title}");
+  print("내용: ${message.notification?.body}");
 }
-
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,65 +33,147 @@ void main() async {
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   // -----------------------------------------------------------
-  // 1. FCM 및 로컬 알림 초기화
+  // FCM 및 로컬 알림 초기화
   // -----------------------------------------------------------
+  await initFCM();
 
+  runApp(MyApp());
+}
+
+// -----------------------------------------------------------
+// FCM 초기화 함수 (로깅 강화)
+// -----------------------------------------------------------
+Future<void> initFCM() async {
   final FirebaseMessaging messaging = FirebaseMessaging.instance;
 
-  // Android 알림 채널 정의 (서버가 보낸 메시지를 이 채널로 수신)
-  const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'event_channel_id', // ID: 서버 코드(Cloud Function)와 일치해야 합니다.
-    '이벤트 마감 알림', // Name: 사용자에게 보이는 알림 채널 이름
-    description: '이벤트 마감일 하루 전 알림 채널입니다.',
-    importance: Importance.high,
-  );
-
-  // 로컬 알림 플러그인 초기화 설정 (Android)
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-      AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(channel);
+  print("🔔 ===== FCM 초기화 시작 =====");
 
   // -----------------------------------------------------------
-  // 2. 권한 요청 및 토픽 구독
+  // 1. 알림 권한 요청
   // -----------------------------------------------------------
-
-  // 알림 권한 요청 (iOS 및 Android 13+)
-  await messaging.requestPermission(
+  NotificationSettings settings = await messaging.requestPermission(
     alert: true,
     badge: true,
     sound: true,
   );
 
-  // 'event_reminders' 주제를 구독 (서버 함수가 이 토픽으로 알림을 보냅니다)
-  await messaging.subscribeToTopic('event_reminders');
+  print("📱 알림 권한 상태: ${settings.authorizationStatus}");
+  // AuthorizationStatus.authorized = 권한 허용
+  // AuthorizationStatus.denied = 권한 거부
+  // AuthorizationStatus.notDetermined = 아직 결정 안함
+
+  if (settings.authorizationStatus == AuthorizationStatus.denied) {
+    print("⚠️ 알림 권한이 거부되었습니다. 설정에서 허용해주세요!");
+  }
 
   // -----------------------------------------------------------
-  // 3. 포그라운드(앱 실행 중) 메시지 수신 핸들러
+  // 2. FCM 토큰 가져오기 및 로깅
+  // -----------------------------------------------------------
+  String? fcmToken = await messaging.getToken();
+  print("🔑 FCM 토큰: $fcmToken");
+
+  if (fcmToken == null) {
+    print("❌ FCM 토큰 생성 실패!");
+  } else {
+    print("✅ FCM 토큰 생성 성공");
+  }
+
+  // 토큰 갱신 리스너
+  messaging.onTokenRefresh.listen((newToken) {
+    print("🔄 FCM 토큰 갱신: $newToken");
+  });
+
+  // -----------------------------------------------------------
+  // 3. 토픽 구독
+  // -----------------------------------------------------------
+  try {
+    await messaging.subscribeToTopic('event_reminders');
+    print("✅ 'event_reminders' 토픽 구독 성공!");
+  } catch (e) {
+    print("❌ 토픽 구독 실패: $e");
+  }
+
+  // -----------------------------------------------------------
+  // 4. Android 알림 채널 생성
+  // -----------------------------------------------------------
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'event_channel_id', // 서버와 동일한 ID
+    '이벤트 마감 알림',
+    description: '이벤트 마감일 하루 전 알림 채널',
+    importance: Importance.high,
+    playSound: true,
+    enableVibration: true,
+  );
+
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+      AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(channel);
+
+  print("📢 알림 채널 생성 완료");
+
+  // -----------------------------------------------------------
+  // 5. 로컬 알림 플러그인 초기화
+  // -----------------------------------------------------------
+  const AndroidInitializationSettings androidSettings =
+  AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const InitializationSettings initSettings = InitializationSettings(
+    android: androidSettings,
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(
+    initSettings,
+    onDidReceiveNotificationResponse: (NotificationResponse response) {
+      print("🔔 알림 탭됨: ${response.payload}");
+      // TODO: 여기서 특정 화면으로 이동 가능
+    },
+  );
+
+  // -----------------------------------------------------------
+  // 6. 포그라운드 메시지 수신 핸들러
   // -----------------------------------------------------------
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    print("📩 포그라운드 메시지 수신!");
+    print("제목: ${message.notification?.title}");
+    print("내용: ${message.notification?.body}");
+    print("데이터: ${message.data}");
+
     RemoteNotification? notification = message.notification;
     AndroidNotification? android = message.notification?.android;
 
-    if (notification != null && android != null) {
+    // 알림 표시
+    if (notification != null) {
       flutterLocalNotificationsPlugin.show(
-        notification.hashCode, // 알림 ID
-        notification.title,    // 알림 제목
-        notification.body,     // 알림 내용
+        notification.hashCode,
+        notification.title,
+        notification.body,
         NotificationDetails(
           android: AndroidNotificationDetails(
             channel.id,
             channel.name,
             channelDescription: channel.description,
-            icon: android.smallIcon, // Android에서 사용할 아이콘
+            icon: '@mipmap/ic_launcher',
+            importance: Importance.high,
+            priority: Priority.high,
           ),
         ),
+        payload: message.data['screen'], // 화면 이동용 데이터
       );
+      print("✅ 포그라운드 알림 표시 완료");
     }
   });
 
+  // -----------------------------------------------------------
+  // 7. 알림 탭해서 앱 열었을 때 처리
+  // -----------------------------------------------------------
+  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    print("🚀 알림을 탭해서 앱 열림!");
+    print("데이터: ${message.data}");
+    // TODO: 특정 화면으로 이동
+  });
 
-  runApp(MyApp());
+  print("🔔 ===== FCM 초기화 완료 =====");
 }
 
 class MyApp extends StatelessWidget {
@@ -106,15 +186,14 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Roboto',
         scaffoldBackgroundColor: Color(0xFFF5F7FA),
       ),
-      // 한국어 지원
       localizationsDelegates: [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: [
-        Locale('ko', 'KR'), // 한국어
-        Locale('en', 'US'), // 영어
+        Locale('ko', 'KR'),
+        Locale('en', 'US'),
       ],
       locale: Locale('ko', 'KR'),
       home: AuthWrapper(),

@@ -83,7 +83,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   ),
                   child: Icon(Icons.event, size: 22),
                 ),
-                label: '이벤트',
+                label: '진행이벤트',
               ),
 
 

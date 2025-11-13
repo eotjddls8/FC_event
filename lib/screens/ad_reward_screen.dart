@@ -310,7 +310,6 @@ class _AdRewardScreenState extends State<AdRewardScreen>
   }
 
   // 🎯 개선된 코인 획득 시스템 (보너스 포함)
-  // 🎯 개선된 코인 획득 시스템 (보너스 포함)
   Future<void> _earnCoins() async {
     if (_isProcessing) {
       _showSnackBar('이미 처리 중입니다. 잠시만 기다려주세요.', Colors.orange);
@@ -322,7 +321,7 @@ class _AdRewardScreenState extends State<AdRewardScreen>
       return;
     }
 
-    // 쿨다운 체크 (30초)
+    // 쿨다운 체크 (5초)
     if (_lastAdWatchTime != null &&
         DateTime.now().difference(_lastAdWatchTime!).inSeconds < 5) {
       final remainingTime = 5 - DateTime.now().difference(_lastAdWatchTime!).inSeconds;
@@ -458,7 +457,7 @@ class _AdRewardScreenState extends State<AdRewardScreen>
   // 🎯 향상된 코인 획득 애니메이션
   Future<void> _showCoinEarnedAnimation(int coinsEarned) async {
     // 애니메이션 시작
-    await _coinAnimationController.forward();
+    await _coinAnimationController.forward(from: 0.0); // ⚡️ 애니메이션 리셋
 
     // 성공 다이얼로그 표시
     showDialog(
@@ -467,11 +466,12 @@ class _AdRewardScreenState extends State<AdRewardScreen>
       builder: (context) => _buildCoinEarnedDialog(coinsEarned),
     );
 
-    // 3초 후 자동 닫기
-    Timer(Duration(seconds: 360), () {
+    // 3초 후 자동 닫기 (360 -> 3초로 수정)
+    Timer(Duration(seconds: 3), () {
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
       }
+      _coinAnimationController.reset(); // ⚡️ 다이얼로그 닫힐 때 컨트롤러 리셋
     });
   }
 
@@ -479,7 +479,6 @@ class _AdRewardScreenState extends State<AdRewardScreen>
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       backgroundColor: Colors.transparent,
-      // 1. Stack을 다시 제거하고 Container만 남깁니다.
       child: Container(
         padding: EdgeInsets.all(24),
         decoration: BoxDecoration(
@@ -594,7 +593,6 @@ class _AdRewardScreenState extends State<AdRewardScreen>
               ),
             ),
 
-            // 2. ⬇️⬇️ (X 버튼 대신 [확인] 버튼 추가) ⬇️⬇️
             SizedBox(height: 24), // 버튼 위 여백
             SizedBox(
               width: double.infinity,
@@ -622,7 +620,6 @@ class _AdRewardScreenState extends State<AdRewardScreen>
           ],
         ),
       ),
-      // 3. 닫기 버튼(Positioned) 제거
     );
   }
 
@@ -690,6 +687,132 @@ class _AdRewardScreenState extends State<AdRewardScreen>
               ),
             ),
             child: Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ⚡️ (2) 추가: 도움말 다이얼로그를 표시하는 함수 (요청하신 규칙 포함)
+  void _showHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.help_outline_rounded, color: Colors.blue.shade600, size: 28),
+            SizedBox(width: 12),
+            Text(
+              '이벤트 안내',
+              style: TextStyle(
+                color: Colors.blue.shade700,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Container(
+          width: double.maxFinite, // 다이얼로그 너비 최대화
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '코인 획득 규칙', // ⚡️ 섹션 1
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue.shade700),
+                ),
+                SizedBox(height: 16),
+                _buildHelpRow(Icons.play_circle, '광고 시청', '광고를 1회 시청하면 기본 1 코인이 지급됩니다.'),
+                _buildHelpRow(Icons.schedule, '일일 한도', '광고는 하루 최대 10회까지 시청할 수 있습니다.'),
+                _buildHelpRow(Icons.star_rate, '보너스 코인', '6회차, 10회차 시청 시 보너스 코인이 지급됩니다.'),
+                _buildHelpRow(Icons.how_to_vote, '상품 응모', '모은 코인을 사용하여 원하는 상품의 추첨에 응모할 수 있습니다.'),
+                _buildHelpRow(Icons.block, '시청 제한', '광고 시청 후 5초의 재시청 대기시간이 있습니다.'),
+
+                Divider(height: 32, thickness: 1), // ⚡️ 섹션 구분선
+
+                Text(
+                  '📘 이벤트 추첨 규칙', // ⚡️ 섹션 2 (요청하신 내용)
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue.shade700),
+                ),
+                SizedBox(height: 16),
+                _buildRulePoint("1.", "본 이벤트는 2주간 진행됩니다."),
+                _buildRulePoint("2.", "당첨자는 응모 종료 후 1~3일 이내에 이메일로 개별 연락드립니다."),
+                _buildRulePoint("3.", "2주 이내에 연락이 닿지 않으면 당첨은 자동 취소되며, 해당 상품은 다음 회차로 이월됩니다."),
+                _buildRulePoint("4.", "이벤트는 로그인한 회원만 참여 가능하며, 여러번 응모할 수 있습니다."),
+                _buildRulePoint("5.", "경품 발송을 위해 이메일·연락처 정보가 수집될 수 있으며, 이는 경품 발송 목적 외에는 사용되지 않습니다."),
+                _buildRulePoint("6.", "주소, 이메일 등 연락처 오류로 인한 재발송은 불가합니다."),
+                _buildRulePoint("7.", "부정 참여가 확인될 경우 당첨이 취소될 수 있습니다."),
+                _buildRulePoint("8.", "이벤트 일정 및 내용은 운영 사정에 따라 사전 공지 없이 변경될 수 있습니다."),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ⚡️ (4) 추가: 번호 매기기 규칙용 헬퍼 위젯
+  Widget _buildRulePoint(String number, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            number,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey[800]),
+          ),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ⚡️ (3) 추가: 도움말 다이얼로그 내부의 각 항목을 만드는 헬퍼 위젯
+  Widget _buildHelpRow(IconData icon, String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.blue.shade600, size: 20),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  description,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -776,6 +899,12 @@ class _AdRewardScreenState extends State<AdRewardScreen>
   List<Widget> _buildAppBarActions() {
     return [
       if (widget.currentUser != null) ...[
+        // ⚡️ (1) 추가: 도움말 아이콘 버튼
+        IconButton(
+          onPressed: _showHelpDialog, // ⚡️ 함수 호출
+          icon: Icon(Icons.help_outline_rounded, color: Colors.white),
+          tooltip: '이벤트 안내',
+        ),
         IconButton(
           onPressed: _refreshUserData,
           icon: Icon(Icons.refresh_rounded, color: Colors.white),
@@ -954,8 +1083,6 @@ class _AdRewardScreenState extends State<AdRewardScreen>
     );
   }
 
-  // 다음 메시지에서 나머지 위젯들과 상품 목록을 계속 구현하겠습니다!
-
   Widget _buildUserInfoCard() {
     return Container(
       padding: EdgeInsets.all(20),
@@ -1095,7 +1222,6 @@ class _AdRewardScreenState extends State<AdRewardScreen>
       animation: _pulseAnimation,
       builder: (context, child) {
         return Transform.scale(
-          //광고 10번 한도에 도달했을 때 0 -> 해당 카드 사라짐 , 1.0 -> 해당 카드 남아있음
           scale: canWatchAd ? _pulseAnimation.value : 1.0,
           child: Container(
             width: double.infinity,
@@ -1192,14 +1318,17 @@ class _AdRewardScreenState extends State<AdRewardScreen>
                   AnimatedBuilder(
                     animation: _progressAnimation,
                     builder: (context, child) {
-                      final progress = (_todayAdsWatched / _maxDailyAds).clamp(0.0, 0.0);
+                      // ⚡️ (수정) _progressAnimation.value를 곱하여 0에서부터 채워지도록 수정
+                      final progress = (_todayAdsWatched / _maxDailyAds).clamp(0.0, 1.0);
                       return Container(
                         height: 8,
+                        clipBehavior: Clip.hardEdge, // ⚡️ 자식 위젯이 부모 밖으로 나가지 않도록
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.3),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft, // ⚡️ 왼쪽부터 채워지도록
                           widthFactor: progress * _progressAnimation.value,
                           child: Container(
                             decoration: BoxDecoration(
@@ -1764,6 +1893,7 @@ class _AdRewardScreenState extends State<AdRewardScreen>
 
                     if (!canParticipate && widget.currentUser != null && !hasEnoughCoins) ...[
                       SizedBox(height: 8),
+                      // ⚡️ (수정) 코인 계산 오류 수정 (ceil() 사용)
                       Text(
                         '💡 광고를 ${((requiredCoins - _userCoins) / 1).ceil()}번 더 시청하면 응모 가능합니다!',
                         textAlign: TextAlign.center,
@@ -1819,7 +1949,7 @@ class _AdRewardScreenState extends State<AdRewardScreen>
 
   Widget _buildLoginPrompt() {
     return Container(
-      margin: EdgeInsets.only(top: 32),
+      margin: EdgeInsets.only(top: 0), // ⚡️ (수정) 상단 마진 제거
       padding: EdgeInsets.all(32),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -1899,7 +2029,7 @@ class _AdRewardScreenState extends State<AdRewardScreen>
   // 🎯 응모하기 함수 (Subcollection 구조 적용)
   Future<void> _participateInLottery(String prizeId, Map<String, dynamic> prizeData) async {
     final int requiredCoins = (prizeData['requiredCoins'] ?? 1).toInt();
-    final String prizeName = prizeData['name'] ?? '상품';
+    final String prizeName = prizeData['title'] ?? '상품'; // ⚡️ 'name' -> 'title'
 
     if (_userCoins < requiredCoins) {
       _showSnackBar('코인이 부족합니다. $requiredCoins개가 필요합니다.', Colors.red);
@@ -1971,6 +2101,7 @@ class _AdRewardScreenState extends State<AdRewardScreen>
               ),
               SizedBox(height: 16),
               Row(
+                mainAxisAlignment: MainAxisAlignment.center, // ⚡️ 중앙 정렬
                 children: [
                   Icon(Icons.monetization_on, color: Colors.amber.shade600, size: 20),
                   SizedBox(width: 8),
@@ -2009,6 +2140,9 @@ class _AdRewardScreenState extends State<AdRewardScreen>
 
     if (confirmed != true) return;
 
+    // ⚡️ (수정) _isProcessing으로 버튼 중복 클릭 방지
+    setState(() => _isProcessing = true);
+
     try {
       final deviceId = await DeviceInfoHelper.getDeviceId();
 
@@ -2037,6 +2171,9 @@ class _AdRewardScreenState extends State<AdRewardScreen>
     } catch (e) {
       print('추첨 응모 실패: $e');
       _showSnackBar('응모 중 오류가 발생했습니다.', Colors.red);
+    } finally {
+      // ⚡️ (수정)
+      setState(() => _isProcessing = false);
     }
   }
 
@@ -2158,8 +2295,8 @@ class _AdRewardScreenState extends State<AdRewardScreen>
       ),
     );
 
-    // 3초 후 자동 닫기
-    Timer(Duration(seconds: 360), () {
+    // ⚡️ (수정) 360 -> 3초
+    Timer(Duration(seconds: 3), () {
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
       }
@@ -2183,7 +2320,10 @@ class PrizeEntryInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     // 1. 사용자 응모 횟수를 비동기로 가져옵니다.
     return FutureBuilder<int>(
-      future: LotteryParticipationService.getUserEntryCount(prize.id, userId),
+      // ⚡️ (수정) userId가 비어있는 경우(비로그인) 0을 반환
+      future: userId.isEmpty
+          ? Future.value(0)
+          : LotteryParticipationService.getUserEntryCount(prize.id, userId),
       builder: (context, snapshot) {
         // 데이터가 로딩 중이거나 오류가 나도 0으로 표시 (사용자 경험 개선)
         final myEntries = snapshot.data ?? 0;
@@ -2217,7 +2357,7 @@ class PrizeEntryInfo extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: myEntries > 0 ? FontWeight.bold : FontWeight.normal,
-                    color: myEntries > 0 ? Colors.amber : FifaColors.textSecondary,
+                    color: myEntries > 0 ? Colors.amber.shade700 : FifaColors.textSecondary, // ⚡️ 색상 강조
                   ),
                 ),
               ],

@@ -299,7 +299,7 @@ class _EventListScreenState extends State<EventListScreen> {
         SizedBox(width: 8),
         // 3. 항시 (파랑)
         _buildFilterItem(
-          title: '항시',
+          title: '항상', //ALL DAY , D-ALL , 365일(매일)
           status: FilterStatus.permanent,
           count: permanentCount,
           color: permanentColor,
